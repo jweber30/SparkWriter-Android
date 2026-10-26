@@ -1,0 +1,104 @@
+version: "3.0"
+kind: sparkplug.image
+metadata:
+  id: debian-13.5.0-amd64-netinst
+  name: Debian 13.5.0 amd64 netinst
+  author: MetalStrapper
+
+source:
+  id: debian-13.5.0-amd64-netinst
+  name: Debian 13.5.0 amd64 netinst
+  family: debian
+  version: "13.5.0"
+  media_type: application/x-iso9660-image
+  url: https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-13.5.0-amd64-netinst.iso
+  size_bytes: 791674880
+  first_64k_sha256: a3c32ee35ae8daeac6cfa2570ddb3394d830e2a324730085637ff295ff6f340b
+  pvd_sha256: 372d18c11098696da11b5f2bc7d8088f1ddcb6565c482cf140deab0497984f68
+  user_supplied: true
+  capabilities:
+    - debian-installer
+    - preseed
+    - patchable-grub
+    - netboot-rendezvous
+  outputs:
+    usb: true
+    iso: true
+  adaptation:
+    status: patchable_on_import
+    satisfies:
+      - auto_install_mode
+      - preseed_url.mailroom
+
+boot_patch:
+  filesystem: iso9660
+  text_patches:
+    - kind: replace_once
+      candidate_paths:
+        - /boot/grub/grub.cfg
+      find: |
+        menuentry --hotkey=g 'Graphical install' {
+            set background_color=black
+            linux    /install.amd/vmlinuz vga=788 --- quiet 
+            initrd   /install.amd/gtk/initrd.gz
+        }
+      replace: |
+        set timeout=0
+        set default=0
+        menuentry --hotkey=g 'Autoinstall' {
+            linux    /install.amd/vmlinuz vga=788 --- 
+            initrd   /install.amd/initrd.gz
+        }
+    - kind: replace_once
+      candidate_paths:
+        - /isolinux/spkgtk.cfg
+      find: |
+        label installspk
+        	menu label Install with ^speech synthesis
+        	kernel /install.amd/vmlinuz
+        	append vga=788 initrd=/install.amd/gtk/initrd.gz speakup.synth=soft --- quiet 
+        # timeout to speech-enabled install
+        timeout 300
+        ontimeout /install.amd/vmlinuz vga=788 initrd=/install.amd/gtk/initrd.gz speakup.synth=soft --- quiet 
+        menu autoboot Press a key, otherwise speech synthesis will be started in # second{,s}...
+      replace: |
+        timeout 30
+        ontimeout /install.amd/vmlinuz initrd=/install.amd/initrd.gz auto=true priority=critical interface=auto url={{Spark.mail.compact.preseed_url}} 
+  kernel_arg_patches:
+    - candidate_paths:
+        - /boot/grub/grub.cfg
+      config_family: grub
+      selector:
+        menuentry: "Autoinstall"
+        kernel: /install.amd/vmlinuz
+        args_contains:
+          - vga=788
+      ensure_args:
+        - url={{Spark.mail.compact.preseed_url}}
+        - auto=true
+        - priority=critical
+        - interface=auto
+      remove_args:
+        - vga=788
+        - quiet
+      remove_lines_containing:
+        - "# Added as a workaround for #1110759"
+        - "echo \"Loading bootloader...\""
+        - "play 960 440 1 0 4 440 1"
+      insert_before: ---
+    - candidate_paths:
+        - /isolinux/gtk.cfg
+      config_family: syslinux
+      selector:
+        label: installgui
+      ensure_args:
+        - initrd=/install.amd/initrd.gz
+        - auto
+        - url={{Spark.mail.compact.preseed_url}}
+      remove_args:
+        - initrd=/install.amd/gtk/initrd.gz
+        - vga=788
+        - ---
+        - quiet
+        - Graphical
+      insert_before: ---

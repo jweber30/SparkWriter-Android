@@ -1,0 +1,9 @@
+{
+  "id": "metalstrapper-proxmox-generic-netboot",
+  "image_template": "image.yaml.in",
+  "padding": "#",
+  "slots": [
+    { "id": "answer_toml", "file": "answer.toml", "iso_path": "/answer.toml", "size": 16384 },
+    { "id": "firstboot_script", "file": "proxmox-first-boot", "iso_path": "/proxmox-first-boot", "size": 65536 }
+  ]
+}

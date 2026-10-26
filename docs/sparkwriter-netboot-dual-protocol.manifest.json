@@ -1,0 +1,32 @@
+{
+  "version": "3.0",
+  "kind": "sparkplug.manifest",
+  "metadata": {
+    "manifest_root_sha256": "ce542447fc97e342dd9bf2e0e3eb47f50c270774b96c53e09e1a07c8931b7249",
+    "id": "metalstrapper-netboot-dual-protocol",
+    "name": "MetalStrapper Dual-Protocol Netboot Seed"
+  },
+  "documents": {
+    "workflow": {
+      "role": "workflow",
+      "url": "sparkwriter-netboot-dual-protocol.sparkplug.yaml",
+      "sha256": "121169436a0fdbedd342d274b213d281877f27eee59d7d4afcefadca7e880f23",
+      "media_type": "application/yaml"
+    },
+    "image": {
+      "role": "image",
+      "url": "images/sparkwriter-ipxe-dual-protocol.image.yaml",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "media_type": "application/yaml"
+    }
+  },
+  "files": {
+    "sparkwriter-ipxe-dual-protocol.iso": {
+      "role": "base_image",
+      "url": "https://mailroom.metalstrapper.net/netboot/v1/seeds/generic-dual-protocol.iso",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "media_type": "application/x-iso9660-image",
+      "size": 931840
+    }
+  }
+}

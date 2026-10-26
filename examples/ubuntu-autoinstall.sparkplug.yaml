@@ -1,0 +1,95 @@
+version: "3.0"
+kind: sparkplug.workflow
+metadata:
+  id: ubuntu-autoinstall
+  name: Ubuntu Autoinstall
+  version: "1.0.0"
+  author: MetalStrapper
+
+image: ubuntu-26.04-server-autoinstall
+fill:
+  /user-data: user-data
+  /meta-data: meta-data
+
+actions:
+  on_iso_ready:
+    - id: generate-admin-password
+      type: generate_ephemeral_password
+      output_var: generated_admin_password
+      user_secret: true
+      user_secret_label: Admin password
+    - id: hash-admin-password
+      type: hash_password
+      input_var: generated_admin_password
+      output_var: generated_admin_password_hash
+      algorithm: sha512_crypt
+
+config_fields:
+  - id: hostname
+    label: Hostname
+    type: text
+    required: true
+  - id: username
+    label: Admin Username
+    type: text
+    default: ubuntu
+    required: true
+  - id: apt_proxy
+    label: APT Proxy
+    type: text
+    default: ""
+    standard_field: apt.proxy
+    storage:
+      persist: "true"
+  - id: ssh_public_keys
+    label: SSH Public Keys
+    type: text
+    standard_field: user.ssh_public_keys
+    storage:
+      persist: "true"
+    description: Paste one SSH public key (without leading '-').
+
+wizard:
+  pages:
+    - id: identity
+      title: Identity
+      fields:
+        - hostname
+        - username
+        - apt_proxy
+        - ssh_public_keys
+
+artifacts:
+  user_data:
+    artifact_id: user-data
+    media_type: text/cloud-config
+    template: user_data
+  meta_data:
+    artifact_id: meta-data
+    media_type: text/plain
+    template: meta_data
+
+templates:
+  user_data: |
+    #cloud-config
+    autoinstall:
+      version: 1
+    {% if apt_proxy %}
+      apt:
+        proxy: "{{apt_proxy}}"
+    {% endif %}
+      identity:
+        hostname: "{{hostname}}"
+        username: "{{username}}"
+        password: "{{generated_admin_password_hash}}"
+      ssh:
+        install-server: true
+        allow-pw: true
+    {% if ssh_public_keys %}
+        authorized-keys:
+          - {{ssh_public_keys}}
+    {% endif %}
+      storage:
+        layout:
+          name: direct
+  meta_data: "local-hostname: {{hostname}}"

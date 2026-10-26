@@ -1,0 +1,57 @@
+version: "3.0"
+kind: sparkplug.workflow
+metadata:
+  id: host-prefill-prototype
+  name: Host Prefill Prototype
+
+image: prototype
+config_fields:
+  - id: hostname
+    label: Hostname
+    required: true
+  - id: enrollment_token
+    label: Enrollment Token
+    required: true
+  - id: internal_hint
+    label: Internal Hint
+    hidden: true
+    default: manifest-only
+wizard:
+  pages:
+    - id: identity
+      title: Identity
+      fields:
+        - hostname
+        - enrollment_token
+form:
+  host_profiles:
+    - id: lab-one
+      label: Lab One
+      description: Static embedded profile for prototype testing.
+      fields:
+        hostname: lab-one
+        enrollment_token: embedded-token-placeholder
+      immutable_fields:
+        - enrollment_token
+  buttons:
+    - id: admin-prefill
+      label: Admin Prefill
+      description: Fetches visible host values from a remote admin service.
+      fetch:
+        url: https://prefill.example.invalid/hosts/lab-one
+        media_type: application/json
+        max_bytes: 16384
+      field_bindings:
+        hostname: host.network.hostname
+        enrollment_token: host.secrets.enrollment_token
+      immutable_fields:
+        - enrollment_token
+templates:
+  meta_data: |
+    local-hostname: {{hostname}}
+  user_data: |
+    #cloud-config
+    write_files:
+      - path: /etc/sparkwriter-enrollment-token
+        permissions: "0600"
+        content: "{{enrollment_token}}"

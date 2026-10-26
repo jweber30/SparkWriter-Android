@@ -1,0 +1,53 @@
+# Gradle
+.gradle/
+**/build/
+
+# Generated / IDE output
+**/bin/
+tools/.qemu-proxmox-smoke/
+tools/.debian-https-preseed-test/
+
+# Android local configuration
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# Android build artifacts
+*.apk
+*.ap_
+*.aab
+*.aar
+*.dex
+*.class
+
+# Generated reports and logs
+captures/
+lint-results*.html
+lint-results*.xml
+*.log
+
+# Kotlin
+*.kotlin_module
+
+# Native / external build output
+.cxx/
+externalNativeBuild/
+
+# Keystores and signing artifacts
+*.jks
+*.keystore
+
+# OS files
+.DS_Store
+Thumbs.db
+.kotlin/*
+.gitignore
+*.iso
+**/*.img
+**/*.raw
+**/*.qcow2

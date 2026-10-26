@@ -1,0 +1,20 @@
+[global]
+keyboard = "en-us"
+country = "us"
+timezone = "UTC"
+fqdn = "metalstrapper-placeholder.invalid"
+mailto = "root@localhost"
+root-password = "MetalStrapper-Placeholder-ChangeMe-00000000"
+
+[network]
+source = "from-dhcp"
+
+[disk-setup]
+filesystem = "ext4"
+disk-list = ["/dev/disk/by-id/metalstrapper-placeholder"]
+
+[first-boot]
+source = "from-iso"
+ordering = "fully-up"
+
+# METALSTRAPPER_PATCH_SLOT answer_toml v1

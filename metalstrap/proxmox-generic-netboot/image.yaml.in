@@ -1,0 +1,67 @@
+# Image document template for the MetalStrap build. tools/metalstrap.py fills
+# the ${...} values from the built ISO. Do not edit offsets by hand.
+version: "3.0"
+kind: sparkplug.image
+metadata:
+  id: metalstrapper-proxmox-generic-netboot
+  name: MetalStrapper Proxmox generic netboot ISO
+  version: "${image_version}"
+  author: MetalStrapper
+  description: ${image_description}
+
+source:
+  id: metalstrapper-proxmox-generic-netboot
+  name: MetalStrapper Proxmox generic netboot ISO
+  family: proxmox
+  media_type: application/vnd.efi.iso
+  url: ${iso_url}
+  sha256: ${iso_sha256}
+  size_bytes: ${iso_size}
+  user_supplied: true
+  capabilities:
+    - proxmox-auto-install
+    - answer_fetch.iso_placeholder
+    - firstboot-script
+    - firstboot_handoff.iso_placeholder
+    - patchable-iso-text
+  outputs:
+    usb: true
+    iso: true
+  adaptation:
+    status: patchable_on_import
+    satisfies:
+      - auto_install_mode
+      - answer_fetch.iso_placeholder
+      - firstboot_handoff.iso_placeholder
+
+installer:
+  scheme: proxmox-auto-install
+  accepts_delivery:
+    - fixed_byte_ranges
+  base_image_requires:
+    - auto_install_mode
+    - answer_fetch.iso_placeholder
+    - firstboot_handoff.iso_placeholder
+
+delivery:
+  mode: fixed_byte_ranges
+  base_image_sha256: ${iso_sha256}
+  patches:
+    - id: answer_toml
+      media_type: application/toml
+      logical_name: answer.toml
+      byte_offset: ${answer_toml_offset}
+      byte_length: ${answer_toml_length}
+      placeholder:
+        encoding: metalstrapper-patch-slot
+      padding:
+        strategy: toml-comment
+    - id: firstboot_script
+      media_type: text/x-shellscript
+      logical_name: proxmox-first-boot
+      byte_offset: ${firstboot_script_offset}
+      byte_length: ${firstboot_script_length}
+      placeholder:
+        encoding: metalstrapper-patch-slot
+      padding:
+        strategy: shell-comment

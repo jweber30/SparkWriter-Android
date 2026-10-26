@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# METALSTRAPPER_PATCH_SLOT firstboot_script v1
+exit 0

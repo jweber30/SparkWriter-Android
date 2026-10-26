@@ -1,0 +1,870 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/sparkwriter_manifest_contract_v3_0.schema.json",
+  "title": "SparkWriter SparkPlug manifest contract v3.0",
+  "description": "Machine-readable contract for SparkPlug v3.0 workflow documents, image documents, and manifest.json package roots.",
+  "anyOf": [
+    { "$ref": "#/$defs/packageRootManifest" },
+    { "$ref": "#/$defs/workflowManifest" },
+    { "$ref": "#/$defs/imageManifest" }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "relativeReference": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\./)(?!.*\\.\\.\\/)[^\\s]+$" },
+    "workflowManifest": {
+      "type": "object",
+      "required": ["version", "kind", "metadata", "image"],
+      "properties": {
+        "version": { "const": "3.0" },
+        "kind": { "const": "sparkplug.workflow" },
+        "metadata": { "$ref": "#/$defs/metadata" },
+        "image": { "type": "string", "minLength": 1, "description": "metadata.id of the image document this workflow fills." },
+        "fill": {
+          "type": "object",
+          "description": "Image slot (delivery patch id or auxiliary file path) to the artifact written into it.",
+          "propertyNames": { "type": "string", "minLength": 1 },
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/artifact" },
+          "propertyNames": { "type": "string", "minLength": 1 }
+        },
+        "mailroom": { "$ref": "#/$defs/mailroom" },
+        "actions": {
+          "type": "object",
+          "propertyNames": {
+            "enum": ["on_iso_ready", "on_write_ready", "on_write_complete", "on_workflow_started"]
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/workflowAction" },
+            "minItems": 1
+          }
+        },
+        "host_events": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": { "$ref": "#/$defs/hostEvent" }
+            },
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "enum": ["write_ready", "write_complete", "workflow.started"]
+              },
+              "additionalProperties": {
+                "oneOf": [
+                  { "$ref": "#/$defs/hostEventBody" },
+                  {
+                    "type": "array",
+                    "items": { "$ref": "#/$defs/hostEventBody" }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "config_fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/configField" }
+        },
+        "wizard": {
+          "type": "object",
+          "required": ["pages"],
+          "properties": {
+            "pages": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/wizardPage" },
+              "minItems": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "form": {
+          "type": "object",
+          "properties": {
+            "buttons": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/formPrefillButton" },
+              "minItems": 1
+            },
+            "host_profiles": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/hostProfile" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "ui_visibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "when": {
+              "oneOf": [
+                { "$ref": "#/$defs/visibilityCondition" },
+                {
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/visibilityCondition" },
+                  "minItems": 1
+                }
+              ]
+            }
+          }
+        },
+        "templates": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "imageManifest": {
+      "type": "object",
+      "required": ["version", "kind", "metadata"],
+      "properties": {
+        "version": { "const": "3.0" },
+        "kind": { "const": "sparkplug.image" },
+        "metadata": { "$ref": "#/$defs/imageMetadata" },
+        "source": { "$ref": "#/$defs/source" },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "usb": { "type": "boolean" },
+            "iso": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "installer": { "$ref": "#/$defs/installer" },
+        "delivery": { "$ref": "#/$defs/delivery" },
+        "boot_patch": { "$ref": "#/$defs/bootPatch" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "delivery": { "type": "object" }
+            },
+            "required": ["delivery"]
+          },
+          "then": { "required": ["installer"] }
+        }
+      ]
+    },
+    "imageMetadata": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string" },
+        "author": { "type": "string" },
+        "publisher": { "type": "string" },
+        "description": { "type": "string" },
+        "homepage": { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string" },
+        "author": { "type": "string" },
+        "publisher": { "type": "string" },
+        "description": { "type": "string" },
+        "homepage": { "type": "string", "format": "uri" },
+        "manifest_root_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "family": { "type": "string" },
+        "version": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "first_64k_sha256": { "$ref": "#/$defs/sha256" },
+        "pvd_sha256": { "$ref": "#/$defs/sha256" },
+        "media_type": { "type": "string" },
+        "user_supplied": { "type": "boolean" },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "adaptation": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": { "type": "string", "enum": ["none", "preadapted", "produced", "patchable_on_import"] },
+            "satisfies": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "human_requirements": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "additionalProperties": false
+        },
+        "acquire": {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "enum": ["direct", "torrent"], "default": "direct" },
+            "url": { "type": "string", "format": "uri" },
+            "artifact": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "outputs": { "$ref": "#/$defs/outputs" }
+      },
+      "additionalProperties": false
+    },
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "usb": { "type": "boolean" },
+        "iso": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "installer": {
+      "type": "object",
+      "required": ["scheme"],
+      "properties": {
+        "scheme": { "type": "string", "minLength": 1 },
+        "accepts_delivery": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "base_image_requires": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "auxiliary_partition": {
+          "type": "object",
+          "required": ["label"],
+          "properties": {
+            "label": { "type": "string", "minLength": 1 },
+            "filesystem": { "type": "string" },
+            "required_files": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^/" }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "properties": {
+        "artifact_id": { "type": "string" },
+        "media_type": { "type": "string" },
+        "template": { "type": "string" },
+        "optional": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "delivery": {
+      "type": "object",
+      "required": ["mode"],
+      "properties": {
+        "mode": { "type": "string", "enum": ["auxiliary_partition", "fixed_byte_ranges"] },
+        "id": { "type": "string" },
+        "after": { "type": "string" },
+        "base_image_sha256": { "$ref": "#/$defs/sha256" },
+        "files": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/deliveryFile" },
+          "propertyNames": { "pattern": "^/" }
+        },
+        "partition": { "$ref": "#/$defs/deliveryPartition" },
+        "patches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/deliveryPatch" },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": { "const": "auxiliary_partition" }
+            },
+            "required": ["mode"]
+          },
+          "then": {
+            "required": ["partition", "files"],
+            "properties": { "patches": false }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": { "const": "fixed_byte_ranges" }
+            },
+            "required": ["mode"]
+          },
+          "then": { "required": ["base_image_sha256", "patches"] }
+        }
+      ]
+    },
+    "deliveryPartition": {
+      "type": "object",
+      "required": ["label", "filesystem", "size_mb", "placement"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "filesystem": { "type": "string", "default": "vfat" },
+        "size_mb": { "type": "integer", "minimum": 1 },
+        "placement": { "type": "string", "enum": ["preallocated_in_base_image", "append_after_image"] },
+        "geometry": { "$ref": "#/$defs/partitionGeometry" }
+      },
+      "additionalProperties": false
+    },
+    "partitionGeometry": {
+      "type": "object",
+      "required": [
+        "base_image_sha256",
+        "partition_table",
+        "partition_number",
+        "start_lba",
+        "sector_size",
+        "byte_offset",
+        "byte_length"
+      ],
+      "properties": {
+        "base_image_sha256": { "$ref": "#/$defs/sha256" },
+        "partition_table": { "type": "string" },
+        "partition_number": { "type": "integer", "minimum": 1 },
+        "start_lba": { "type": "integer", "minimum": 0 },
+        "sector_size": { "type": "integer", "minimum": 1 },
+        "byte_offset": { "type": "integer", "minimum": 0 },
+        "byte_length": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "deliveryPatch": {
+      "type": "object",
+      "required": ["id", "byte_offset", "byte_length"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "media_type": { "type": "string" },
+        "logical_name": { "type": "string" },
+        "byte_offset": { "type": "integer", "minimum": 0 },
+        "byte_length": { "type": "integer", "minimum": 1 },
+        "placeholder": {
+          "type": "object",
+          "properties": {
+            "encoding": { "type": "string", "enum": ["zeroes", "metalstrapper-patch-slot"] },
+            "sha256": { "$ref": "#/$defs/sha256" }
+          },
+          "additionalProperties": false
+        },
+        "padding": {
+          "type": "object",
+          "properties": {
+            "strategy": { "type": "string", "enum": ["zeroes", "space", "toml-comment", "shell-comment"] }
+          },
+          "additionalProperties": false
+        },
+        "optional": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "deliveryFile": {
+      "type": "object",
+      "properties": {
+        "media_type": { "type": "string" },
+        "optional": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "mailroom": {
+      "type": "object",
+      "properties": {
+        "compact_artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/mailroomCompactArtifact" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "mailroomCompactArtifact": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+        "read_protocol": { "type": "string", "enum": ["http", "https"] },
+        "read_base_url": { "type": "string", "pattern": "^https?://" },
+        "write_base_url": { "type": "string", "pattern": "^https://" }
+      },
+      "additionalProperties": false
+    },
+    "bootPatch": {
+      "type": "object",
+      "properties": {
+        "filesystem": { "type": "string", "const": "iso9660", "default": "iso9660" },
+        "text_patches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textPatch" }
+        },
+        "kernel_arg_patches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/kernelArgPatch" }
+        },
+        "script_patches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/scriptPatch" }
+        },
+        "placeholder_patches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/placeholderPatch" }
+        },
+        "encoding": { "type": "string", "const": "utf-8", "default": "utf-8" }
+      },
+      "additionalProperties": false
+    },
+    "textPatch": {
+      "type": "object",
+      "required": ["kind", "candidate_paths", "find"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["replace_once"] },
+        "candidate_paths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeAbsolutePathString" },
+          "minItems": 1
+        },
+        "find": { "type": "string", "minLength": 1 },
+        "replace": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "kernelArgPatch": {
+      "type": "object",
+      "required": ["config_family", "selector", "ensure_args"],
+      "properties": {
+        "candidate_paths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeAbsolutePathString" },
+          "minItems": 1
+        },
+        "config_family": { "type": "string", "enum": ["grub", "isolinux", "syslinux"] },
+        "selector": {
+          "type": "object",
+          "properties": {
+            "menuentry": { "type": "string" },
+            "label": { "type": "string" },
+            "kernel": { "type": "string" },
+            "args_contains": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          },
+          "additionalProperties": false
+        },
+        "ensure_args": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "remove_args": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "remove_lines_containing": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "insert_before": { "type": "string", "const": "---", "default": "---" }
+      },
+      "additionalProperties": false
+    },
+    "scriptPatch": {
+      "type": "object",
+      "required": ["kind", "esp_image_path", "esp_script_path", "script"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["netboot_xyz_autoexec"] },
+        "candidate_paths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeAbsolutePathString" },
+          "minItems": 1
+        },
+        "esp_image_path": { "$ref": "#/$defs/safeAbsolutePathString" },
+        "esp_script_path": { "type": "string", "pattern": "^/.*" },
+        "script": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "placeholderPatch": {
+      "type": "object",
+      "required": ["candidate_paths", "placeholder", "replacement"],
+      "properties": {
+        "candidate_paths": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeAbsolutePathString" },
+          "minItems": 1
+        },
+        "placeholder": { "type": "string", "minLength": 1 },
+        "replacement": { "type": "string" },
+        "encoding": { "type": "string", "enum": ["ascii", "utf-8"], "default": "ascii" },
+        "padding": { "type": "string", "const": "space", "default": "space" }
+      },
+      "additionalProperties": false
+    },
+    "safeAbsolutePathString": { "type": "string", "pattern": "^/(?!/)(?=.{1,}$)(?!.*\\.\\./)" },
+    "workflowAction": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["render_template", "generate_ephemeral_password", "hash_password", "create_artifact"]
+        },
+        "template": { "type": "string" },
+        "output_var": { "type": "string" },
+        "artifact_id": { "type": "string" },
+        "logical_name": { "type": "string" },
+        "media_type": { "type": "string" },
+        "content_var": { "type": "string" },
+        "input_var": { "type": "string" },
+        "algorithm": { "type": "string", "enum": ["sha512_crypt", "sha512-crypt", "sha512crypt"] },
+        "executable": { "type": "boolean" },
+        "user_secret": { "type": "boolean", "default": false },
+        "user_secret_label": { "type": "string" },
+        "when": { "$ref": "#/$defs/fieldCondition" }
+      },
+      "additionalProperties": false
+    },
+    "hostEvent": {
+      "type": "object",
+      "required": ["event", "return_delivery"],
+      "properties": {
+        "event": { "type": "string", "enum": ["write_ready", "write_complete", "workflow.started"] },
+        "return_delivery": { "$ref": "#/$defs/returnDelivery" }
+      },
+      "additionalProperties": false
+    },
+    "returnDelivery": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "format": "uri", "pattern": "^(https://|\\{\\{)" },
+        "method": { "type": "string", "enum": ["POST", "PUT", "post", "put"], "default": "POST" },
+        "delivery_mode": { "type": "string", "enum": ["required", "best_effort"], "default": "best_effort" },
+        "template": { "type": "string" },
+        "from": { "type": "string" },
+        "content_var": { "type": "string" },
+        "media_type": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "required": ["url"],
+      "description": "An HTTPS endpoint on any host. It is trusted because the manifest that declares it is hash-pinned."
+    },
+    "fieldCondition": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "selector": { "type": "string", "minLength": 1 },
+        "operator": { "type": "string", "default": "equals" },
+        "op": { "type": "string", "default": "equals" },
+        "value": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "wizardPage": {
+      "type": "object",
+      "required": ["id", "title", "fields"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "configField": {
+      "type": "object",
+      "anyOf": [
+        { "required": ["id"] },
+        { "required": ["key"] }
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "key": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "enum": ["text", "password", "select", "multiline", "array", "info"] },
+        "default": { "type": ["string", "boolean", "number", "null", "array"] },
+        "required": { "type": "boolean" },
+        "description": { "type": "string" },
+        "placeholder": { "type": "string" },
+        "options": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              {
+                "type": "object",
+                "required": ["value"],
+                "properties": {
+                  "value": { "type": "string" },
+                  "label": { "type": "string" },
+                  "default": { "type": "boolean" },
+                  "placeholder": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "max_length": { "type": "integer", "minimum": 1 },
+        "big": { "type": "boolean" },
+        "advanced": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "disabled": { "type": "boolean" },
+        "immutable": { "type": "boolean" },
+        "standard_field": { "type": "string" },
+        "storage": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "bindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/configBinding" }
+        },
+        "fetch": { "$ref": "#/$defs/configFetch" },
+        "when": { "$ref": "#/$defs/fieldCondition" }
+      },
+      "additionalProperties": false
+    },
+    "configBinding": {
+      "type": "object",
+      "required": ["consumer", "target"],
+      "properties": {
+        "consumer": { "type": "string" },
+        "target": { "type": "string" },
+        "destination": { "type": "string" },
+        "encoding": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "formPrefillButton": {
+      "type": "object",
+      "required": ["id", "label", "fetch", "field_bindings"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "fetch": { "$ref": "#/$defs/configFetch" },
+        "field_bindings": {
+          "type": "object",
+          "description": "Map config field IDs to response paths for automatic form population.",
+          "additionalProperties": { "type": "string", "minLength": 1 },
+          "minProperties": 1
+        },
+        "immutable_fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "when": { "$ref": "#/$defs/fieldCondition" }
+      },
+      "additionalProperties": false
+    },
+    "hostProfile": {
+      "type": "object",
+      "required": ["id", "label", "fields"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "fields": {
+          "type": "object",
+          "additionalProperties": { "type": ["string", "number", "boolean", "null"] },
+          "minProperties": 1
+        },
+        "immutable_fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "configFetch": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string", "format": "uri", "pattern": "^https://" },
+        "method": { "type": "string", "const": "GET", "default": "GET" },
+        "media_type": { "type": "string" },
+        "max_bytes": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "packageRootManifest": {
+      "type": "object",
+      "required": ["version", "kind", "metadata", "documents"],
+      "properties": {
+        "version": { "const": "3.0" },
+        "kind": { "const": "sparkplug.manifest" },
+        "metadata": {
+          "allOf": [
+            { "$ref": "#/$defs/metadata" },
+            { "required": ["manifest_root_sha256"] }
+          ]
+        },
+        "documents": {
+          "type": "object",
+          "propertyNames": { "type": "string", "minLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/packageDocumentRef" },
+          "minProperties": 2,
+          "maxProperties": 2
+        },
+        "files": {
+          "type": "object",
+          "propertyNames": { "type": "string", "minLength": 1 },
+          "additionalProperties": { "$ref": "#/$defs/packageFileRef" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "packageDocumentRef": {
+      "type": "object",
+      "required": ["role", "sha256"],
+      "properties": {
+        "role": { "type": "string", "enum": ["workflow", "image"] },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "url": { "$ref": "#/$defs/packageUrl" },
+        "inline": { "$ref": "#/$defs/inlineText" },
+        "media_type": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "url": { "type": "string" }
+            },
+            "required": ["url"]
+          },
+          "then": {
+            "not": { "required": ["inline"] }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "inline": { "type": "object" }
+            },
+            "required": ["inline"]
+          },
+          "then": {
+            "not": { "required": ["url"] }
+          }
+        }
+      ]
+    },
+    "packageFileRef": {
+      "type": "object",
+      "required": ["sha256"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "url": { "$ref": "#/$defs/packageUrl" },
+        "inline": { "$ref": "#/$defs/inlineText" },
+        "role": { "type": "string" },
+        "media_type": { "type": "string" },
+        "size": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "url": { "type": "string" }
+            },
+            "required": ["url"]
+          },
+          "then": {
+            "not": { "required": ["inline"] }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "inline": { "type": "object" }
+            },
+            "required": ["inline"]
+          },
+          "then": {
+            "not": { "required": ["url"] }
+          }
+        }
+      ]
+    },
+    "packageUrl": {
+      "type": "string",
+      "description": "A relative package path or an absolute HTTPS URL. Android fetches it only when it is on the same origin as manifest.json.",
+      "anyOf": [
+        { "pattern": "^https://" },
+        { "$ref": "#/$defs/relativeReference" }
+      ]
+    },
+    "inlineText": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "encoding": { "type": "string", "default": "utf-8" },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "visibilityCondition": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "field": { "type": "string", "enum": ["source_family", "source_id", "source_capabilities"] },
+        "selector": { "type": "string", "enum": ["source_family", "source_id", "source_capabilities"] },
+        "operator": { "type": "string", "default": "equals" },
+        "op": { "type": "string", "default": "equals" },
+        "value": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "hostEventBody": {
+      "type": "object",
+      "required": ["return_delivery"],
+      "properties": {
+        "event": { "type": "string", "enum": ["write_ready", "write_complete", "workflow.started"] },
+        "return_delivery": { "$ref": "#/$defs/returnDelivery" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

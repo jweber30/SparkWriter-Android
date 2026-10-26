@@ -1,0 +1,68 @@
+version: "3.0"
+kind: sparkplug.image
+metadata:
+  id: ubuntu-26.04-server-autoinstall
+  name: Ubuntu 26.04 Server Autoinstall
+  author: MetalStrapper
+
+source:
+  id: ubuntu-26.04-server-autoinstall
+  name: Ubuntu 26.04 Server Autoinstall
+  family: ubuntu
+  version: "26.04"
+  url: https://releases.ubuntu.com/26.04/ubuntu-26.04-live-server-amd64.iso
+  sha256: dec49008a71f6098d0bcfc822021f4d042d5f2db279e4d75bdd981304f1ca5d9
+  capabilities:
+    - cloud-init-nocloud
+
+outputs:
+  usb: true
+  iso: true
+
+installer:
+  scheme: ubuntu-nocloud
+  accepts_delivery:
+    - auxiliary_partition
+  auxiliary_partition:
+    label: CIDATA
+    filesystem: vfat
+    required_files:
+      - /user-data
+      - /meta-data
+
+delivery:
+  mode: auxiliary_partition
+  partition:
+    label: CIDATA
+    filesystem: vfat
+    size_mb: 64
+    placement: append_after_image
+  files:
+    /user-data:
+      media_type: text/cloud-config
+    /meta-data:
+      media_type: text/plain
+
+boot_patch:
+  filesystem: iso9660
+  kernel_arg_patches:
+    - candidate_paths:
+        - /boot/grub/grub.cfg
+      config_family: grub
+      selector:
+        menuentry: Try or Install Ubuntu
+        kernel: /casper/vmlinuz
+      ensure_args:
+        - autoinstall
+        - ds=nocloud
+      insert_before: ---
+    - candidate_paths:
+        - /boot/grub/grub.cfg
+      config_family: grub
+      selector:
+        menuentry: Ubuntu (safe graphics)
+        kernel: /casper/vmlinuz
+      ensure_args:
+        - autoinstall
+        - ds=nocloud
+      insert_before: ---

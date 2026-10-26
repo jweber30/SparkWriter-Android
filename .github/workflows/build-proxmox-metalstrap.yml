@@ -1,0 +1,223 @@
+name: Build Proxmox MetalStrap
+
+# Builds the MetalStrapper Proxmox VE ISO with two reserved slots (answer.toml and
+# proxmox-first-boot), generates its SparkPlug image document, checks that document
+# against the SparkPlugs that use it, and publishes both as a GitHub release.
+# Recipe: metalstrap/proxmox-generic-netboot. Tool: tools/metalstrap.py.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pve_iso:
+        description: Proxmox VE ISO file name from enterprise.proxmox.com/iso
+        required: true
+        default: proxmox-ve_9.2-1.iso
+      pve_iso_sha256:
+        description: Expected SHA-256 of that ISO (optional, checked in addition to Proxmox's SHA256SUMS)
+        required: false
+        default: ""
+      publish:
+        description: Publish the release when checks pass (otherwise it stays a draft)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-proxmox-metalstrap
+
+env:
+  RECIPE: metalstrap/proxmox-generic-netboot
+  IMAGE_DOC: metalstrapper-proxmox-generic-netboot.image.yaml
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    permissions:
+      contents: write      # create the draft release
+      id-token: write      # artifact attestations
+      attestations: write
+    outputs:
+      tag: ${{ steps.names.outputs.tag }}
+    env:
+      PVE_ISO: ${{ inputs.pve_iso }}
+      PVE_ISO_SHA256: ${{ inputs.pve_iso_sha256 }}
+      ISO_BASE_URL: https://enterprise.proxmox.com/iso
+      PROXMOX_KEYRING_URL: https://enterprise.proxmox.com/debian/proxmox-archive-keyring-trixie.gpg
+      PROXMOX_KEYRING_SHA256: 136673be77aba35dcce385b28737689ad64fd785a797e57897589aed08db6e45
+
+    steps:
+      - name: Install base tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl gh git python3 xorriso
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Name the release
+        id: names
+        run: |
+          # Inputs reach the shell only through env, and must look like a Proxmox ISO name.
+          printf '%s' "$PVE_ISO" | grep -Eqx 'proxmox-ve_[0-9]+\.[0-9]+-[0-9]+\.iso' || { echo "::error::pve_iso must look like proxmox-ve_9.2-1.iso"; exit 1; }
+          if [ -n "$PVE_ISO_SHA256" ]; then
+            printf '%s' "$PVE_ISO_SHA256" | grep -Eqx '[0-9a-f]{64}' || { echo "::error::pve_iso_sha256 must be 64 lowercase hex characters"; exit 1; }
+          fi
+          version="${PVE_ISO#proxmox-ve_}"
+          version="${version%.iso}"
+          {
+            echo "version=$version"
+            echo "tag=metalstrap-proxmox-ve-$version-r$GITHUB_RUN_NUMBER"
+            echo "iso=metalstrapper-proxmox-ve-$version.iso"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install proxmox-auto-install-assistant
+        run: |
+          curl -fsSL "$PROXMOX_KEYRING_URL" -o /usr/share/keyrings/proxmox-archive-keyring.gpg
+          echo "$PROXMOX_KEYRING_SHA256  /usr/share/keyrings/proxmox-archive-keyring.gpg" | sha256sum -c -
+          cat > /etc/apt/sources.list.d/pve.sources <<'EOF'
+          Types: deb
+          URIs: http://download.proxmox.com/debian/pve
+          Suites: trixie
+          Components: pve-no-subscription
+          Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+          EOF
+          apt-get update
+          apt-get install -y --no-install-recommends proxmox-auto-install-assistant
+          proxmox-auto-install-assistant --version
+
+      - name: Download and verify Proxmox VE ISO
+        run: |
+          mkdir -p src
+          curl -fsSL "$ISO_BASE_URL/SHA256SUMS" -o src/SHA256SUMS
+          grep -E "  $PVE_ISO\$" src/SHA256SUMS > src/expected.sha256
+          test -s src/expected.sha256
+          if [ -n "$PVE_ISO_SHA256" ]; then
+            echo "$PVE_ISO_SHA256  $PVE_ISO" | cmp - src/expected.sha256 || { echo "::error::Proxmox SHA256SUMS does not match pve_iso_sha256"; exit 1; }
+          fi
+          curl -fsSL "$ISO_BASE_URL/$PVE_ISO" -o "src/$PVE_ISO"
+          (cd src && sha256sum -c expected.sha256)
+
+      - name: Build ISO with reserved slots
+        env:
+          ISO: ${{ steps.names.outputs.iso }}
+        run: |
+          python3 tools/metalstrap.py slots "$RECIPE" --out build/slots
+          mkdir -p out
+          proxmox-auto-install-assistant prepare-iso "src/$PVE_ISO" \
+            --fetch-from iso \
+            --answer-file build/slots/answer.toml \
+            --on-first-boot build/slots/proxmox-first-boot \
+            --output "out/$ISO"
+          ls -l out
+
+      - name: Write image document
+        env:
+          ISO: ${{ steps.names.outputs.iso }}
+          TAG: ${{ steps.names.outputs.tag }}
+          VERSION: ${{ steps.names.outputs.version }}
+        run: |
+          upstream_sha256="$(cut -d' ' -f1 src/expected.sha256)"
+          python3 tools/metalstrap.py image-doc "$RECIPE" \
+            --iso "out/$ISO" \
+            --url "https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ISO" \
+            --version "$VERSION-r$GITHUB_RUN_NUMBER" \
+            --description "Built from $PVE_ISO (sha256 $upstream_sha256) by $GITHUB_REPOSITORY run $GITHUB_RUN_NUMBER at $GITHUB_SHA." \
+            --out "out/$IMAGE_DOC"
+          size="$(stat -c %s "out/$ISO")"
+          if [ "$size" -ge 2147483648 ]; then
+            echo "::error::out/$ISO is $size bytes; GitHub release assets must be under 2 GiB"
+            exit 1
+          fi
+          cat "out/$IMAGE_DOC"
+
+      - name: Keep image document for validation
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-document
+          path: out/${{ env.IMAGE_DOC }}
+          if-no-files-found: error
+
+      # Attestations need a public repository (or GitHub Enterprise Cloud).
+      - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            out/${{ steps.names.outputs.iso }}
+            out/${{ env.IMAGE_DOC }}
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISO: ${{ steps.names.outputs.iso }}
+          TAG: ${{ steps.names.outputs.tag }}
+          VERSION: ${{ steps.names.outputs.version }}
+          REPO_PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          iso_sha256="$(sha256sum "out/$ISO" | cut -d' ' -f1)"
+          upstream_sha256="$(cut -d' ' -f1 src/expected.sha256)"
+          cat > release-notes.md <<EOF
+          MetalStrapper Proxmox VE $VERSION ISO with two reserved slots for SparkWriter:
+          \`/answer.toml\` (16 KiB) and \`/proxmox-first-boot\` (64 KiB).
+
+          - Built from \`$PVE_ISO\`, sha256 \`$upstream_sha256\`
+          - Output \`$ISO\`, sha256 \`$iso_sha256\`
+          - Image document: \`$IMAGE_DOC\` (slot offsets, hashes, and download URL)
+          - Recipe: \`$RECIPE\` at $GITHUB_SHA
+
+          To use this build in SparkWriter, copy \`$IMAGE_DOC\` over
+          \`app/bundled/images/$IMAGE_DOC\` and \`examples/images/$IMAGE_DOC\`.
+          EOF
+          if [ "$REPO_PRIVATE" = "false" ]; then
+            printf '\nVerify: `gh attestation verify %s --repo %s`\n' "$ISO" "$GITHUB_REPOSITORY" >> release-notes.md
+          fi
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --target "$GITHUB_SHA" \
+            --title "Proxmox VE $VERSION MetalStrap (run $GITHUB_RUN_NUMBER)" \
+            --notes-file release-notes.md \
+            "out/$ISO" \
+            "out/$IMAGE_DOC"
+
+  validate:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download image document
+        uses: actions/download-artifact@v4
+        with:
+          name: image-document
+          path: generated
+
+      - name: Check image document against the SparkPlugs that use it
+        run: |
+          SPARKWRITER_IMAGE_DOC="$PWD/generated/$IMAGE_DOC" \
+            ./gradlew --no-daemon :manifest-runtime:test --tests '*GeneratedImageDocumentTest*' --rerun
+
+  publish:
+    needs: [build, validate]
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false

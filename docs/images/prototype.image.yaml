@@ -1,0 +1,13 @@
+version: "3.0"
+kind: sparkplug.image
+metadata:
+  id: prototype
+  name: Prototype ISO
+
+source:
+  id: prototype
+  name: Prototype ISO
+  user_supplied: true
+outputs:
+  usb: true
+  iso: true

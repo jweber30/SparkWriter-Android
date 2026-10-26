@@ -1,0 +1,335 @@
+version: "3.0"
+kind: sparkplug.workflow
+metadata:
+  id: proxmox-autoinstall
+  name: Proxmox VE
+  version: "0.1.0"
+  author: MetalStrapper
+  description: Patch the MetalStrapper generic Proxmox netboot ISO with a generated answer file and a local first-boot script. No external services.
+
+image: metalstrapper-proxmox-generic-netboot
+fill:
+  answer_toml: answer_toml
+  firstboot_script: firstboot_script
+
+actions:
+  on_iso_ready:
+    - id: generate-proxmox-root-password
+      type: generate_ephemeral_password
+      output_var: generated_proxmox_root_password
+      user_secret: true
+      user_secret_label: Proxmox root password
+    - id: hash-proxmox-root-password
+      type: hash_password
+      input_var: generated_proxmox_root_password
+      output_var: generated_proxmox_root_password_hash
+      algorithm: sha512_crypt
+
+config_fields:
+  - id: pve_fqdn
+    label: Proxmox FQDN
+    type: text
+    default: pve1.srv.home.arpa
+    required: true
+    max_length: 253
+  - id: pve_keyboard
+    label: Keyboard
+    type: text
+    default: en-us
+    required: true
+    storage:
+      persist: "true"
+  - id: pve_country
+    label: Country
+    type: text
+    default: us
+    required: true
+    storage:
+      persist: "true"
+  - id: pve_timezone
+    label: Timezone
+    type: text
+    required: true
+    standard_field: locale.timezone
+    storage:
+      persist: "true"
+  - id: pve_mailto
+    label: Admin Email
+    type: text
+    default: root@example.invalid
+    required: true
+    standard_field: user.email
+    storage:
+      persist: "true"
+  - id: pve_network_source
+    label: Network Source
+    type: select
+    default: from-dhcp
+    required: true
+    options:
+      - value: from-dhcp
+        label: DHCP
+      - value: from-answer
+        label: Static
+  - id: pve_network_cidr
+    label: Static CIDR
+    type: text
+    default: ""
+    advanced: true
+    description: "Example: 192.0.2.10/24"
+    when:
+      field: pve_network_source
+      operator: equals
+      value: from-answer
+  - id: pve_network_gateway
+    label: Static Gateway
+    type: text
+    default: ""
+    advanced: true
+    when:
+      field: pve_network_source
+      operator: equals
+      value: from-answer
+  - id: pve_network_dns
+    label: Static DNS
+    type: text
+    default: ""
+    advanced: true
+    when:
+      field: pve_network_source
+      operator: equals
+      value: from-answer
+  - id: pve_disk_filesystem
+    label: Filesystem
+    type: select
+    default: ext4
+    required: true
+    options:
+      - value: ext4
+        label: ext4
+      - value: xfs
+        label: XFS
+      - value: zfs
+        label: ZFS
+  - id: pve_disk_list
+    label: Install Disks
+    type: text
+    default: '["sda"]'
+    required: true
+    description: TOML array of disk names, for example ["sda"] or ["sda", "sdb"].
+  - id: pve_zfs_raid
+    label: ZFS RAID
+    type: select
+    default: ""
+    advanced: true
+    options:
+      - value: ""
+        label: None
+      - value: raid0
+        label: RAID0
+      - value: raid1
+        label: RAID1 mirror
+      - value: raid10
+        label: RAID10
+      - value: raidz-1
+        label: RAIDZ-1
+      - value: raidz-2
+        label: RAIDZ-2
+      - value: raidz-3
+        label: RAIDZ-3
+    when:
+      field: pve_disk_filesystem
+      operator: equals
+      value: zfs
+  - id: pve_root_ssh_keys
+    label: Root SSH Keys
+    type: text
+    default: "[]"
+    standard_field: user.ssh_public_keys
+    storage:
+      persist: "true"
+    description: TOML array of SSH public keys, for example ["ssh-ed25519 AAAA... user@host"].
+  - id: pve_reboot_mode
+    label: Reboot Mode
+    type: select
+    default: reboot
+    advanced: true
+    options:
+      - value: reboot
+        label: Reboot
+      - value: poweroff
+        label: Power off
+  - id: pve_community_repos
+    label: Package Repositories
+    type: select
+    default: community
+    required: true
+    description: Proxmox's enterprise repositories need a paid subscription. The community repositories are free and receive updates slightly later.
+    options:
+      - value: community
+        label: Switch to community (no-subscription) repositories
+      - value: keep
+        label: Keep Proxmox defaults (enterprise)
+  - id: pve_firstboot_command
+    label: Custom First-Boot Command
+    type: multiline
+    default: ""
+    max_length: 8192
+    placeholder: "apt-get install -y htop"
+    description: >-
+      Runs once as root with bash after the first boot, once networking is up and after
+      the repository setup. It is stored in plain text on the USB drive and on the
+      installed system, so do not put passwords or keys here. It is not saved in SparkWriter.
+      Output goes to /var/log/sparkwriter-firstboot.log.
+
+wizard:
+  pages:
+    - id: identity
+      title: Identity
+      fields:
+        - pve_fqdn
+        - pve_keyboard
+        - pve_country
+        - pve_timezone
+        - pve_mailto
+    - id: network
+      title: Network
+      fields:
+        - pve_network_source
+        - pve_network_cidr
+        - pve_network_gateway
+        - pve_network_dns
+    - id: storage
+      title: Storage
+      fields:
+        - pve_disk_filesystem
+        - pve_disk_list
+        - pve_zfs_raid
+    - id: access
+      title: Access
+      fields:
+        - pve_root_ssh_keys
+        - pve_reboot_mode
+    - id: first-boot
+      title: First Boot
+      fields:
+        - pve_community_repos
+        - pve_firstboot_command
+
+artifacts:
+  answer_toml:
+    artifact_id: answer_toml
+    media_type: application/toml
+    template: answer_toml
+  firstboot_script:
+    artifact_id: firstboot_script
+    media_type: text/x-shellscript
+    template: firstboot_script
+
+templates:
+  answer_toml: |
+    # Proxmox VE automated installation answer file rendered by SparkWriter.
+    [global]
+    keyboard = {{ pve_keyboard | toml_string }}
+    country = {{ pve_country | toml_string }}
+    fqdn = {{ pve_fqdn | toml_string }}
+    mailto = {{ pve_mailto | toml_string }}
+    timezone = {{ pve_timezone | toml_string }}
+    root-password-hashed = {{ generated_proxmox_root_password_hash | toml_string }}
+    root-ssh-keys = {{pve_root_ssh_keys}}
+    reboot-mode = {{ pve_reboot_mode | toml_string }}
+    [network]
+    source = {{ pve_network_source | toml_string }}
+    {% if pve_network_cidr %}
+    cidr = {{ pve_network_cidr | toml_string }}
+    gateway = {{ pve_network_gateway | toml_string }}
+    dns = {{ pve_network_dns | toml_string }}
+    {% endif %}
+    [disk-setup]
+    filesystem = {{ pve_disk_filesystem | toml_string }}
+    disk-list = {{pve_disk_list}}
+    {% if pve_zfs_raid %}
+    zfs.raid = {{ pve_zfs_raid | toml_string }}
+    {% endif %}
+    [first-boot]
+    source = "from-iso"
+    ordering = "fully-up"
+  firstboot_script: |
+    #!/usr/bin/env bash
+    # Proxmox VE first-boot script rendered by SparkWriter. Runs once, as root.
+    set -Eeuo pipefail
+    log_file=/var/log/sparkwriter-firstboot.log
+    (umask 077 && touch "$log_file")
+    exec > >(tee -a "$log_file") 2>&1
+    log() {
+      printf '[sparkwriter-firstboot] %s\n' "$*"
+    }
+    repo_mode={{ pve_community_repos | shell_quote }}
+    custom_command={{ pve_firstboot_command | shell_quote }}
+    # Turn off a repository file without deleting it: deb822 files get "Enabled: no",
+    # one-line .list files get their deb lines commented out.
+    disable_repo_file() {
+      local file="$1"
+      [ -e "$file" ] || return 0
+      case "$file" in
+        *.sources)
+          if ! grep -qi '^Enabled:' "$file"; then
+            sed -i '/^Types:/i Enabled: no' "$file"
+          else
+            sed -i 's/^Enabled:.*/Enabled: no/I' "$file"
+          fi
+          ;;
+        *.list)
+          sed -i 's/^\s*deb /# deb /' "$file"
+          ;;
+      esac
+      log "Disabled $file"
+    }
+    use_community_repositories() {
+      local suite keyring signed_by=""
+      suite="$(. /etc/os-release && printf '%s' "${VERSION_CODENAME:-}")"
+      if [ -z "$suite" ]; then
+        log "Unknown Debian release; leaving repositories unchanged"
+        return 0
+      fi
+      for file in /etc/apt/sources.list.d/pve-enterprise.sources \
+                  /etc/apt/sources.list.d/pve-enterprise.list \
+                  /etc/apt/sources.list.d/ceph.sources \
+                  /etc/apt/sources.list.d/ceph.list; do
+        disable_repo_file "$file"
+      done
+      keyring=/usr/share/keyrings/proxmox-archive-keyring.gpg
+      if [ -r "$keyring" ]; then
+        signed_by="Signed-By: $keyring"
+      fi
+      cat >/etc/apt/sources.list.d/proxmox-community.sources <<EOF_PVE
+    Types: deb
+    URIs: https://download.proxmox.com/debian/pve
+    Suites: $suite
+    Components: pve-no-subscription
+    $signed_by
+    Types: deb
+    URIs: https://download.proxmox.com/debian/ceph-squid
+    Suites: $suite
+    Components: no-subscription
+    $signed_by
+    EOF_PVE
+      log "Enabled Proxmox community repositories for $suite"
+      DEBIAN_FRONTEND=noninteractive apt-get update
+    }
+    if [ "$repo_mode" = "community" ]; then
+      use_community_repositories
+    else
+      log "Keeping Proxmox default repositories"
+    fi
+    if [ -n "$custom_command" ]; then
+      log "Running custom first-boot command"
+      status=0
+      bash -c "$custom_command" || status=$?
+      if [ "$status" -ne 0 ]; then
+        log "Custom first-boot command failed with exit status $status"
+        exit "$status"
+      fi
+      log "Custom first-boot command finished"
+    fi
+    log "First boot complete"

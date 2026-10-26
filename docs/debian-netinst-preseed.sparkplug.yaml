@@ -1,0 +1,189 @@
+version: "3.0"
+kind: sparkplug.workflow
+metadata:
+  id: debian-netinst-preseed
+  name: Debian Netinst Preseed
+  version: "0.1.0"
+  author: MetalStrapper
+  description: Patch a Debian netinst ISO to boot with an appended preseed.cfg.
+
+image: debian-13.5.0-amd64-netinst
+
+mailroom:
+  compact_artifacts:
+    - id: preseed
+
+actions:
+  on_iso_ready:
+    - id: generate-user-password
+      type: generate_ephemeral_password
+      output_var: generated_user_password
+      user_secret: true
+      user_secret_label: Admin password
+    - id: hash-user-password
+      type: hash_password
+      input_var: generated_user_password
+      output_var: generated_user_password_hash
+      algorithm: sha512_crypt
+
+config_fields:
+  - id: hostname
+    label: Hostname
+    type: text
+    default: debian-spark
+    required: true
+  - id: locale.locale
+    label: Locale
+    type: text
+    default: en_US.UTF-8
+    storage:
+      persist: "true"
+  - id: locale.keyboard
+    label: Keyboard Layout
+    type: text
+    default: us
+    standard_field: locale.keyboard
+    storage:
+      persist: "true"
+  - id: locale.timezone
+    label: Timezone
+    type: text
+    default: America/Denver
+    standard_field: locale.timezone
+    storage:
+      persist: "true"
+  - id: domain
+    label: Domain
+    type: text
+    default: local
+  - id: target_disk
+    label: Install Disk
+    type: select
+    default: /dev/nvme0n1
+    required: true
+    options:
+      - value: /dev/nvme0n1
+        label: NVMe (/dev/nvme0n1)
+      - value: /dev/sda
+        label: SATA/USB (/dev/sda)
+      - value: custom
+        label: Custom
+  - id: custom_target_disk
+    label: Custom Install Disk
+    type: text
+    default: ""
+    required: true
+    advanced: true
+    description: "Example: /dev/vda"
+    when:
+      field: target_disk
+      operator: equals
+      value: custom
+  - id: username
+    label: Admin Username
+    type: text
+    standard_field: user.username
+    storage:
+      persist: "true"
+    required: true
+  - id: full_name
+    label: Full Name
+    type: text
+    standard_field: user.name
+    storage:
+      persist: "true"
+  - id: apt_proxy
+    label: APT Proxy
+    type: text
+    standard_field: apt.proxy
+    default: ""
+    advanced: true
+    storage:
+      persist: "true"
+  - id: package_include
+    label: Extra Packages
+    type: text
+    default: curl ca-certificates openssh-server
+    advanced: true
+  - id: ssh_public_keys
+    label: SSH Public Keys
+    type: text
+    standard_field: user.ssh_public_keys
+    storage:
+      persist: "true"
+    description: Paste one SSH public key.
+wizard:
+  pages:
+    - id: identity
+      title: Identity
+      fields:
+        - hostname
+        - domain
+        - locale.locale
+        - locale.keyboard
+        - locale.timezone
+        - username
+        - full_name
+    - id: storage
+      title: Storage
+      fields:
+        - target_disk
+        - custom_target_disk
+    - id: packages
+      title: Packages
+      fields:
+        - apt_proxy
+        - package_include
+        - ssh_public_keys
+
+templates:
+  preseed: |
+    d-i debian-installer/locale string {{locale.locale}}
+    d-i keyboard-configuration/xkb-keymap select {{locale.keyboard}}
+    d-i netcfg/choose_interface select auto
+    d-i netcfg/get_hostname string {{hostname}}
+    d-i netcfg/get_domain string {{domain}}
+    d-i mirror/country string manual
+    d-i mirror/http/hostname string deb.debian.org
+    d-i mirror/http/directory string /debian
+    d-i mirror/http/proxy string {{apt_proxy}}
+    d-i passwd/root-login boolean false
+    d-i passwd/root-password password unused
+    d-i passwd/root-password-again password unused
+    d-i passwd/user-fullname string {{full_name}}
+    d-i passwd/username string {{username}}
+    d-i passwd/user-password-crypted password {{generated_user_password_hash}}
+    d-i passwd/user-default-groups string audio cdrom video sudo
+    d-i clock-setup/utc boolean true
+    d-i time/zone string {{locale.timezone}}
+    {% if custom_target_disk %}
+    d-i partman-auto/disk string {{custom_target_disk}}
+    {% else %}
+    d-i partman-auto/disk string {{target_disk}}
+    {% endif %}
+    d-i partman-auto/method string regular
+    d-i partman-auto/choose_recipe select atomic
+    d-i partman-lvm/device_remove_lvm boolean true
+    d-i partman-md/device_remove_md boolean true
+    d-i partman-partitioning/confirm_write_new_label boolean true
+    d-i partman/confirm_write_new_label boolean true
+    d-i partman/choose_partition select finish
+    d-i partman/confirm boolean true
+    d-i partman/confirm_nooverwrite boolean true
+    tasksel tasksel/first multiselect standard, ssh-server
+    d-i pkgsel/include string {{package_include}}
+    popularity-contest popularity-contest/participate boolean false
+    d-i grub-installer/only_debian boolean true
+    d-i finish-install/reboot_in_progress note
+    {% if ssh_public_keys %}
+    d-i preseed/late_command string in-target sh -c 'install -d -m 700 /home/{{username}}/.ssh && printf "%s\n" "{{ssh_public_keys}}" > /home/{{username}}/.ssh/authorized_keys && chown -R {{username}}:{{username}} /home/{{username}}/.ssh && chmod 600 /home/{{username}}/.ssh/authorized_keys'
+    {% endif %}
+
+host_events:
+  - event: write_ready
+    return_delivery:
+      url: "{{Spark.mail.compact.preseed_write_url}}"
+      method: POST
+      delivery_mode: required
+      template: preseed
+      media_type: text/plain
