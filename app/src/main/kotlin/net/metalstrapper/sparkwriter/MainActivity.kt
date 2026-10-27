@@ -59,7 +59,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.annotation.StringRes
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -667,26 +670,17 @@ fun SparkWriterApp(
                                         modifier = Modifier.width(320.dp),
                                         verticalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
+                                        SelectionContainer {
                                             Text(
-                                                header,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                maxLines = 1,
+                                                text = buildAnnotatedString {
+                                                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(header) }
+                                                    if (writeHeaderDetail.isNotBlank()) append(" $writeHeaderDetail")
+                                                },
+                                                style = MaterialTheme.typography.bodySmall,
+                                                maxLines = 2,
                                                 overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+                                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                                             )
-                                            if (writeHeaderDetail.isNotBlank()) {
-                                                Text(
-                                                    writeHeaderDetail,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                )
-                                            }
                                         }
                                         if (writeProgress != null || writeInProgress) {
                                             LinearProgressIndicator(
