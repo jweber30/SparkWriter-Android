@@ -1,8 +1,8 @@
 # SparkWriter Droid
 
-Android framework for SparkWriter's manifest-driven USB provisioning flow.
+SparkWriter turns a verified operating-system image and a declarative configuration into bootable installation media, without requiring the user to understand the underlying installation process.
 
-This project ports the SparkWriter concept into Android-native modules:
+Modules:
 
 - `app`: Jetpack Compose workflow UI and `spark://plugin/add` deep-link entrypoint.
 - `core-model`: Android-neutral SparkWriter domain contracts.
