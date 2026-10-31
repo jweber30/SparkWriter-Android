@@ -2,10 +2,13 @@ package net.metalstrapper.sparkwriter.usb
 
 import net.metalstrapper.sparkwriter.core.AuxiliaryDataPlan
 import net.metalstrapper.sparkwriter.core.BlockDeviceInfo
+import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.DeviceRef
 import net.metalstrapper.sparkwriter.core.VerifiedImage
 import net.metalstrapper.sparkwriter.core.WriteIntent
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WriteGuardsTest {
@@ -23,19 +26,88 @@ class WriteGuardsTest {
         image = image,
     )
 
-    @Test(expected = WriteRefusedException::class)
+    private val stick = DeviceFingerprint(
+        vendorId = 0x0781,
+        productId = 0x5581,
+        manufacturerName = "SanDisk",
+        productName = "Ultra",
+        serialNumber = "4C530001",
+        blockSize = 512,
+        blockCount = 2,
+    )
+    private val probedStick = BlockDeviceInfo(
+        device = DeviceRef("usb1", "usb://1", "USB", 1_000, "1 KB"),
+        blockCount = 2,
+        permissionGranted = true,
+        fingerprint = stick,
+    )
+    private val smallImageIntent = WriteIntent(
+        deviceId = "usb1",
+        confirmedDeviceId = "usb1",
+        image = VerifiedImage("file:///image.iso", "abc", 500, "application/octet-stream", "test", "image.iso"),
+        confirmedDevice = stick,
+    )
+
+    @Test
     fun refusesDeviceSmallerThanImage() {
-        validateWriteIntent(
-            intent = WriteIntent(
-                deviceId = "usb1",
-                confirmedDeviceId = "usb1",
-                image = VerifiedImage("file:///image.iso", "abc", 2_000, "application/octet-stream", "test", "image.iso"),
-            ),
-            probed = BlockDeviceInfo(
-                device = DeviceRef("usb1", "usb://1", "USB", 1_000, "1 KB"),
-                blockCount = 2,
-                permissionGranted = true,
-            ),
+        val error = assertThrows(WriteRefusedException::class.java) {
+            validateWriteIntent(
+                intent = smallImageIntent.copy(
+                    image = smallImageIntent.image.copy(sizeBytes = 2_000),
+                ),
+                probed = probedStick,
+            )
+        }
+        assertEquals("USB device is smaller than the verified image", error.message)
+    }
+
+    @Test
+    fun acceptsTheConfirmedDevice() {
+        validateWriteIntent(smallImageIntent, probedStick)
+    }
+
+    @Test
+    fun refusesAWriteWithoutAConfirmedIdentity() {
+        val error = assertThrows(WriteRefusedException::class.java) {
+            validateWriteIntent(smallImageIntent.copy(confirmedDevice = null), probedStick)
+        }
+        assertEquals("Write has no confirmed device identity", error.message)
+    }
+
+    @Test
+    fun refusesWhenTheConnectedIdentityCannotBeRead() {
+        assertThrows(WriteRefusedException::class.java) {
+            validateWriteIntent(smallImageIntent, probedStick.copy(fingerprint = null))
+        }
+    }
+
+    @Test
+    fun refusesADifferentStickOfTheSameModelBySerial() {
+        val error = assertThrows(WriteRefusedException::class.java) {
+            validateWriteIntent(smallImageIntent, probedStick.copy(fingerprint = stick.copy(serialNumber = "4C530002")))
+        }
+        assertEquals(
+            "Connected USB device is not the one confirmed (serial number changed); confirm the device again",
+            error.message,
+        )
+        // The message names what changed, never the serial values themselves.
+        assertTrue(!error.message!!.contains("4C53"))
+    }
+
+    @Test
+    fun namesEveryPropertyThatChanged() {
+        val other = DeviceFingerprint(
+            vendorId = 0x090c,
+            productId = 0x1000,
+            productName = "Flash Disk",
+            blockSize = 4096,
+            blockCount = 2,
+        )
+        val error = assertThrows(WriteRefusedException::class.java) { requireSameDevice(stick, other) }
+        assertEquals(
+            "Connected USB device is not the one confirmed " +
+                "(USB vendor/product ID, name, serial number, capacity changed); confirm the device again",
+            error.message,
         )
     }
 

@@ -12,6 +12,7 @@ import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.DeviceRef
 import net.metalstrapper.sparkwriter.core.SparkManifest
 import net.metalstrapper.sparkwriter.core.AuxiliaryDataPlan
@@ -79,6 +80,7 @@ internal data class ProbedUsbDevice(
 internal suspend fun writeUsbWithWorkManager(
     context: android.content.Context,
     deviceId: String,
+    confirmedDevice: DeviceFingerprint,
     image: VerifiedImage,
     verifyAfter: Boolean,
     auxiliaryData: AuxiliaryDataPlan?,
@@ -98,6 +100,7 @@ internal suspend fun writeUsbWithWorkManager(
             UsbImageWriteWorker.inputData(
                 context = context,
                 deviceId = deviceId,
+                confirmedDevice = confirmedDevice,
                 image = image,
                 verifyAfter = verifyAfter,
                 auxiliaryData = auxiliaryData,

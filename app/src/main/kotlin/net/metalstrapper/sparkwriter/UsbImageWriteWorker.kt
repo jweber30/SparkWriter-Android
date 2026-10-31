@@ -38,6 +38,7 @@ import net.metalstrapper.sparkwriter.core.BootPatchPlan
 import net.metalstrapper.sparkwriter.core.BootPatchTemplatePlan
 import net.metalstrapper.sparkwriter.core.BootPlaceholderPatchSpec
 import net.metalstrapper.sparkwriter.core.BootScriptPatchSpec
+import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.BootTextPatchSpec
 import net.metalstrapper.sparkwriter.core.FixedByteRangePlan
 import net.metalstrapper.sparkwriter.core.FieldCondition
@@ -68,6 +69,7 @@ private const val USB_WRITE_COMPLETE_NOTIFICATION_ID = 3002
 
 object UsbWriteData {
     const val KEY_DEVICE_ID = "device_id"
+    const val KEY_CONFIRMED_DEVICE = "confirmed_device"
     const val KEY_IMAGE = "image"
     const val KEY_VERIFY_AFTER = "verify_after"
     const val KEY_AUXILIARY_DATA_FILE = "auxiliary_data_file"
@@ -139,7 +141,7 @@ class UsbImageWriteWorker(
                 )
 
                 // One claim spans every phase so usb-storage cannot rebind to a half-written image.
-                usbWriter.withClaimedDevice(intent.deviceId) {
+                usbWriter.withClaimedDevice(intent.deviceId, intent.confirmedDevice) {
                     updateProgress(0, applicationContext.getString(R.string.opening_usb_image), "write_image")
                     usbWriter.writeImage(intent).collect { write ->
                         updateProgress(write.percent, "${write.message}: ${write.percent}%", "write_image")
@@ -334,6 +336,7 @@ class UsbImageWriteWorker(
         fun inputData(
             context: Context,
             deviceId: String,
+            confirmedDevice: DeviceFingerprint,
             image: VerifiedImage,
             verifyAfter: Boolean,
             auxiliaryData: AuxiliaryDataPlan?,
@@ -344,6 +347,7 @@ class UsbImageWriteWorker(
             tags: Map<String, String> = emptyMap(),
         ): Data = workDataOf(
             UsbWriteData.KEY_DEVICE_ID to deviceId,
+            UsbWriteData.KEY_CONFIRMED_DEVICE to workerJson.encodeToString(confirmedDevice),
             UsbWriteData.KEY_IMAGE to workerJson.encodeToString(image),
             UsbWriteData.KEY_VERIFY_AFTER to verifyAfter,
             UsbWriteData.KEY_AUXILIARY_DATA_FILE to auxiliaryData?.let { persistAuxiliaryData(context, it) },
@@ -955,6 +959,9 @@ private fun Data.toWriteIntent(): WriteIntent {
     val returnPlan = getString(UsbWriteData.KEY_RETURN_PLAN_FILE)
         ?.ifBlank { null }
         ?.let { workerJson.decodeFromString<WriteReturnPlan>(File(it).readText()) }
+    val confirmedDevice = getString(UsbWriteData.KEY_CONFIRMED_DEVICE)
+        ?.ifBlank { null }
+        ?.let { workerJson.decodeFromString<DeviceFingerprint>(it) }
     val tags = getString(UsbWriteData.KEY_TAGS)
         ?.ifBlank { null }
         ?.let { workerJson.decodeFromString<Map<String, String>>(it) }
@@ -971,6 +978,7 @@ private fun Data.toWriteIntent(): WriteIntent {
         bootPatchTemplate = bootPatchTemplate,
         returnPlan = returnPlan,
         tags = tags,
+        confirmedDevice = confirmedDevice,
     )
 }
 

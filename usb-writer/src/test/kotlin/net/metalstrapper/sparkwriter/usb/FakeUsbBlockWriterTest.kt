@@ -15,12 +15,14 @@ import org.junit.Test
 class FakeUsbBlockWriterTest {
     @Test
     fun emitsCompleteWriteProgress() = runBlocking {
-        val writer = FakeUsbBlockWriter(listOf(DeviceRef("usb1", "usb://1", "USB", 4_096, "4 KB")))
+        val device = DeviceRef("usb1", "usb://1", "USB", 4_096, "4 KB")
+        val writer = FakeUsbBlockWriter(listOf(device))
         val final = writer.writeImage(
             WriteIntent(
                 deviceId = "usb1",
                 confirmedDeviceId = "usb1",
                 image = VerifiedImage("file:///image.iso", "abc", 1_024, "application/octet-stream", "test", "image.iso"),
+                confirmedDevice = fakeFingerprint(device),
             ),
         ).last()
 

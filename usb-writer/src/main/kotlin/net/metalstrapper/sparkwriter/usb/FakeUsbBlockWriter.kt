@@ -4,6 +4,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import net.metalstrapper.sparkwriter.core.BlockDeviceInfo
+import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.DeviceRef
 import net.metalstrapper.sparkwriter.core.PermissionResult
 import net.metalstrapper.sparkwriter.core.VerifyProgress
@@ -24,6 +25,7 @@ class FakeUsbBlockWriter(
             blockSize = 512,
             blockCount = device.sizeBytes / 512,
             permissionGranted = true,
+            fingerprint = fakeFingerprint(device),
         )
     }
 
@@ -66,3 +68,13 @@ class FakeUsbBlockWriter(
         emit(VerifyProgress(total, total, "Fake full-image verification complete", completed = true, verified = true))
     }
 }
+
+/** The identity [FakeUsbBlockWriter.probe] reports for [device]. */
+fun fakeFingerprint(device: DeviceRef): DeviceFingerprint = DeviceFingerprint(
+    vendorId = 0x1d6b,
+    productId = 0x0104,
+    productName = device.displayName,
+    serialNumber = "fake-${device.id}",
+    blockSize = 512,
+    blockCount = device.sizeBytes / 512,
+)

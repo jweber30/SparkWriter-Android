@@ -884,6 +884,12 @@ internal fun WorkflowPane(
 
                                         val probed = usbWriter.probe(deviceId)
                                         devices = devices.map { if (it.id == probed.device.id) probed.device else it }
+                                        // Probed right after the user confirmed: the worker refuses to
+                                        // write unless the device it claims still has this identity.
+                                        val confirmedDevice = probed.fingerprint ?: run {
+                                            onStatus(context.getString(R.string.usb_permission_denied))
+                                            return@launch
+                                        }
                                         onStatus(context.getString(R.string.preparing_local_image))
 
                                         val image = selectedImage.also { manifest.requireDeclaredImageHash(it) }
@@ -914,6 +920,7 @@ internal fun WorkflowPane(
                                         val writeIntent = WriteIntent(
                                             deviceId = deviceId,
                                             confirmedDeviceId = deviceId,
+                                            confirmedDevice = confirmedDevice,
                                             image = image,
                                             verifyAfter = verifyBaseImage,
                                             auxiliaryData = auxiliaryData,
@@ -927,6 +934,7 @@ internal fun WorkflowPane(
                                         val terminalInfo = writeUsbWithWorkManager(
                                             context = context,
                                             deviceId = deviceId,
+                                            confirmedDevice = confirmedDevice,
                                             image = image,
                                             verifyAfter = verifyBaseImage,
                                             auxiliaryData = auxiliaryData,

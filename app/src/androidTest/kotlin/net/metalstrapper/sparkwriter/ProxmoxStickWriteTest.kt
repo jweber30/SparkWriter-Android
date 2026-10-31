@@ -51,6 +51,9 @@ class ProxmoxStickWriteTest {
         assumeTrue("No $VIRTUAL_STICK_NAME attached", stick.size == 1)
         val deviceId = stick.single().id
         grantPermission(deviceId)
+        val confirmedDevice = requireNotNull(
+            AndroidUsbHostBlockWriter(context, usbManager).probe(deviceId).fingerprint,
+        ) { "Probe returned no fingerprint" }
 
         val manifest = loadOfferedSparkPlugs(context).single { it.metadata.id == "proxmox-autoinstall" }
         val sha256 = sha256Hex(base)
@@ -80,6 +83,7 @@ class ProxmoxStickWriteTest {
         val info = writeUsbWithWorkManager(
             context = context,
             deviceId = deviceId,
+            confirmedDevice = confirmedDevice,
             image = image,
             verifyAfter = true,
             auxiliaryData = (deliveryPlan as? LocalDeliveryPlan.Auxiliary)?.plan,
