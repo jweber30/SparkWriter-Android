@@ -248,8 +248,10 @@ config_fields:
     max_length: 8192
     placeholder: "apt-get install -y htop"
     description: >-
-      Runs once as root with bash after the first boot, once networking is up and after
-      the repository setup. It is stored in plain text on the USB drive and on the
+      Runs as root with bash on the first boot, once the host is fully up and after the
+      repository setup. If it fails, it runs again on each boot until it succeeds, so make
+      it safe to run twice: apt-get install -y is fine, appending to a file is not.
+      It is stored in plain text on the USB drive and on the
       installed system, so do not put passwords or keys here. It is not saved in SparkWriter.
       Output goes to /var/log/sparkwriter-firstboot.log.
 
