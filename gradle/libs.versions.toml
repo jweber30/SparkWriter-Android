@@ -19,6 +19,7 @@ jsonSchemaValidator = "1.5.6"
 androidxTest = "1.7.0"
 androidxTestExtJunit = "1.2.1"
 espresso = "3.7.0"
+uiautomator = "2.3.0"
 # 1.0.0-alpha09 and later need AGP 9.1 and compileSdk 37.
 appfunctions = "1.0.0-alpha08"
 guava = "32.0.1-android"
@@ -51,6 +52,7 @@ androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "a
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxTest" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
 androidx-test-espresso = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 androidx-appfunctions = { module = "androidx.appfunctions:appfunctions", version.ref = "appfunctions" }
 androidx-appfunctions-service = { module = "androidx.appfunctions:appfunctions-service", version.ref = "appfunctions" }

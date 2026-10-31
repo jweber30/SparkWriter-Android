@@ -5,7 +5,6 @@ import net.metalstrapper.sparkwriter.core.SparkManifest
 import java.net.URI
 import java.net.URLDecoder
 import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 /*
  * Drafts let something outside the wizard (an assistant through AppFunctions, a
@@ -181,7 +180,7 @@ internal fun buildDraftUri(request: ConfigDraftRequest): String = buildString {
 }
 
 private fun decode(value: String): String? =
-    runCatching { URLDecoder.decode(value, StandardCharsets.UTF_8) }.getOrNull()
+    runCatching { URLDecoder.decode(value, "UTF-8") }.getOrNull()
 
 private fun encode(value: String): String =
-    URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20")
+    URLEncoder.encode(value, "UTF-8").replace("+", "%20")

@@ -248,7 +248,7 @@ class ManifestRuntime(
             ?.split("&")
             ?.mapNotNull {
                 val parts = it.split("=", limit = 2)
-                if (parts.size == 2) parts[0] to java.net.URLDecoder.decode(parts[1], Charsets.UTF_8) else null
+                if (parts.size == 2) parts[0] to java.net.URLDecoder.decode(parts[1], "UTF-8") else null
             }
             ?.firstOrNull { it.first == "manifest" || it.first == "url" }
             ?.second
