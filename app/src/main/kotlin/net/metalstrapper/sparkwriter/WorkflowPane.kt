@@ -66,6 +66,7 @@ import kotlinx.coroutines.withContext
 import net.metalstrapper.sparkwriter.core.ConfigField
 import net.metalstrapper.sparkwriter.core.DeviceRef
 import net.metalstrapper.sparkwriter.core.FormPrefillButton
+import net.metalstrapper.sparkwriter.core.GeneratedUserSecret
 import net.metalstrapper.sparkwriter.core.HostProfile
 import net.metalstrapper.sparkwriter.core.HostEventSubscription
 import net.metalstrapper.sparkwriter.core.PermissionResult
@@ -113,6 +114,8 @@ internal fun WorkflowPane(
     var progress by remember { mutableStateOf<Float?>(null) }
     var progressText by remember { mutableStateOf<String?>(null) }
     var configPageIndex by rememberSaveable(manifest.metadata.id) { mutableStateOf(0) }
+    // Passwords shown on the review step that the next write or save will use.
+    var pendingSecrets by remember(manifest.metadata.id) { mutableStateOf<List<GeneratedUserSecret>?>(null) }
     val manifestAcquisition = remember(manifest.metadata.id, manifest.source) {
         runCatching { manifest.imageAcquisitionPlan() }.getOrNull()
     }
@@ -246,6 +249,7 @@ internal fun WorkflowPane(
     val selectedDeviceHasKnownSize = selectedDevice?.sizeBytes?.let { it > 0L } == true
     val totalConfigSteps = configPages.size + if (hasReviewStep) 1 else 0
     val reviewStepIndex = if (hasReviewStep) configPages.size else -1
+    val onFinalConfigStep = !hasReviewStep || configPageIndex == reviewStepIndex
     val currentConfigPage = configPages.getOrNull(configPageIndex)
         ?.takeIf { configPageIndex < configPages.size }
     val currentPageFields = currentConfigPage?.fields.orEmpty()
@@ -268,7 +272,7 @@ internal fun WorkflowPane(
         manifest.isAndroidRunnable &&
         localUnavailableReasons.isEmpty() &&
         requiredConfigComplete &&
-        (!hasReviewStep || configPageIndex == reviewStepIndex)
+        onFinalConfigStep
     val saveAssembledImageEnabled = !writeActive &&
         !savingAssembledImage &&
         importedImage != null &&
@@ -276,7 +280,27 @@ internal fun WorkflowPane(
         manifest.isAndroidRunnable &&
         localUnavailableReasons.isEmpty() &&
         requiredConfigComplete &&
-        (!hasReviewStep || configPageIndex == reviewStepIndex)
+        onFinalConfigStep
+    LaunchedEffect(manifest.metadata.id, onFinalConfigStep) {
+        if (onFinalConfigStep) {
+            // Without a review step this runs as soon as the pane opens, so keep
+            // credentials from an earlier write visible instead of replacing them.
+            if (hasReviewStep || generatedSecrets.isEmpty()) {
+                val secrets = manifest.generateUserSecrets(manifest.activeConfigValues(values))
+                pendingSecrets = secrets
+                onGeneratedSecrets(secrets.toDisplayMap())
+            }
+        } else if (pendingSecrets != null) {
+            // Left the review step before writing: these were never used.
+            pendingSecrets = null
+            onGeneratedSecrets(emptyMap())
+        }
+    }
+    fun takePendingSecrets(activeValues: Map<String, String>): List<GeneratedUserSecret> {
+        val secrets = pendingSecrets ?: manifest.generateUserSecrets(activeValues)
+        pendingSecrets = null
+        return secrets
+    }
     var advancedExpanded by rememberSaveable(manifest.metadata.id, currentConfigPage?.id) { mutableStateOf(false) }
     val pageHeadingFocusRequester = remember(manifest.metadata.id, configPageIndex) { FocusRequester() }
     var focusPageHeading by remember(manifest.metadata.id) { mutableStateOf(false) }
@@ -446,7 +470,6 @@ internal fun WorkflowPane(
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.configuration), fontWeight = FontWeight.SemiBold)
                     if (currentConfigPage == null) {
                         val hasReturnDeliveryReview = manifest.hostEvents.any { it.returnDelivery != null }
                         val reviewTitle = when {
@@ -495,6 +518,7 @@ internal fun WorkflowPane(
                             }
                         }
                     } else {
+                        Text(stringResource(R.string.configuration), fontWeight = FontWeight.SemiBold)
                         val pageStepDescription = stringResource(
                             R.string.step_of,
                             currentConfigPage.title,
@@ -847,16 +871,13 @@ internal fun WorkflowPane(
 
                                         val image = selectedImage.also { manifest.requireDeclaredImageHash(it) }
                                         saveProfileFields(activeConfigFields)
+                                        val activeValues = manifest.activeConfigValues(values)
                                         val preparation = manifest.buildLocalDeliveryPreparation(
-                                            manifest.activeConfigValues(values),
+                                            activeValues,
                                             image,
+                                            presetSecrets = takePendingSecrets(activeValues),
                                         )
-                                        onGeneratedSecrets(
-                                            preparation.userSecrets
-                                                .associate { it.label to it.value }
-                                                .toSortedMap()
-                                                .toMap(),
-                                        )
+                                        onGeneratedSecrets(preparation.userSecrets.toDisplayMap())
                                         val deliveryPlan = preparation.deliveryPlan
                                         val auxiliaryData = (deliveryPlan as? LocalDeliveryPlan.Auxiliary)?.plan
                                         val fixedByteRanges = (deliveryPlan as? LocalDeliveryPlan.FixedByteRanges)?.plan
@@ -967,16 +988,13 @@ internal fun WorkflowPane(
                                         onStatus(if (saveAsIsoPreferred) "Preparing assembled ISO" else "Preparing assembled image")
                                         val image = selectedImage.also { manifest.requireDeclaredImageHash(it) }
                                         saveProfileFields(activeConfigFields)
+                                        val activeValues = manifest.activeConfigValues(values)
                                         val preparation = manifest.buildLocalDeliveryPreparation(
-                                            manifest.activeConfigValues(values),
+                                            activeValues,
                                             image,
+                                            presetSecrets = takePendingSecrets(activeValues),
                                         )
-                                        onGeneratedSecrets(
-                                            preparation.userSecrets
-                                                .associate { it.label to it.value }
-                                                .toSortedMap()
-                                                .toMap(),
-                                        )
+                                        onGeneratedSecrets(preparation.userSecrets.toDisplayMap())
                                         val deliveryPlan = preparation.deliveryPlan
                                         val saveAsIso = manifest.prefersAssembledIsoSave(image) &&
                                             deliveryPlan !is LocalDeliveryPlan.Auxiliary
@@ -1086,7 +1104,6 @@ private fun ReviewSummary(
     val deliveryEvents = hostEvents.filter { it.returnDelivery != null }
     if (summaryFields.isEmpty() && deliveryEvents.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(R.string.review), fontWeight = FontWeight.SemiBold)
         summaryFields.forEach { field ->
             val fieldProvenance = provenance[field.formFieldId()]
             Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
@@ -1182,6 +1199,9 @@ private fun ConfigField.summaryValue(value: String): String {
 }
 
 private fun ConfigField.isReviewSecret(): Boolean = type == "password"
+
+private fun List<GeneratedUserSecret>.toDisplayMap(): Map<String, String> =
+    associate { it.label to it.value }.toSortedMap().toMap()
 
 private fun String.maskSecret(): String {
     return "*".repeat(length.coerceIn(8, 32))

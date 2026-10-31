@@ -280,6 +280,23 @@ class AuxiliaryDataTest {
     }
 
     @Test
+    fun bundledProxmoxWriteUsesRootPasswordShownOnReview() {
+        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-autoinstall.sparkplug.yaml"))
+        val values = manifest.activeConfigValues(proxmoxValues())
+        val shown = manifest.generateUserSecrets(values)
+        val shownPassword = shown.single().value
+
+        val preparation = manifest.buildLocalDeliveryPreparation(values, presetSecrets = shown)
+
+        assertEquals(shown, preparation.userSecrets)
+        val answer = (preparation.deliveryPlan as LocalDeliveryPlan.FixedByteRanges).plan.patches
+            .single { it.id == "answer_toml" }.content
+        val hash = Regex("""root-password-hashed = "(\$6\$[./A-Za-z0-9]{16}\$[./A-Za-z0-9]{86})"""")
+            .find(answer)?.groupValues?.get(1)
+        assertEquals(hash, org.apache.commons.codec.digest.Crypt.crypt(shownPassword, hash!!))
+    }
+
+    @Test
     fun bundledProxmoxEscapesHostileFieldValues() {
         val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-autoinstall.sparkplug.yaml"))
         val preparation = manifest.buildLocalDeliveryPreparation(

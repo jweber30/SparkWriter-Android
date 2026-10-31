@@ -40,15 +40,31 @@ fun SparkManifest.buildLocalDeliveryPlan(values: Map<String, String>, image: Ver
     return buildLocalDeliveryPreparation(values, image).deliveryPlan
 }
 
+/**
+ * Generates the on_iso_ready passwords that are shown to the user, so they can be
+ * displayed on the review step. Pass the result to [buildLocalDeliveryPreparation]
+ * so the write uses these same values.
+ */
+fun SparkManifest.generateUserSecrets(values: Map<String, String>): List<GeneratedUserSecret> {
+    return actionPhases["on_iso_ready"].orEmpty().mapNotNull { action ->
+        if (action.type != "generate_ephemeral_password" || !action.userSecret) return@mapNotNull null
+        if (!action.whenCondition.matches(values)) return@mapNotNull null
+        val outputVar = action.outputVar?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        GeneratedUserSecret(id = outputVar, label = action.secretDisplayLabel(outputVar), value = randomPassword())
+    }
+}
+
 fun SparkManifest.buildLocalDeliveryPreparation(
     values: Map<String, String>,
     image: VerifiedImage? = null,
+    presetSecrets: List<GeneratedUserSecret> = emptyList(),
 ): LocalDeliveryPreparation {
+    val presetPasswords = presetSecrets.associate { it.id to it.value }
     val runtimeVariables = generatedRuntimeVariables()
     val artifactValues = values + runtimeVariables
     val deliverySpec = delivery
     if (deliverySpec == null) {
-        val rendered = renderArtifacts(artifactValues)
+        val rendered = renderArtifacts(artifactValues, presetPasswords)
         return LocalDeliveryPreparation(
             deliveryPlan = null,
             bootPatchPlan = buildBootPatchPlan(runtimeVariables),
@@ -58,7 +74,7 @@ fun SparkManifest.buildLocalDeliveryPreparation(
         )
     }
     ensureLocalAdaptationAvailable()
-    val rendered = renderArtifacts(artifactValues)
+    val rendered = renderArtifacts(artifactValues, presetPasswords)
     val deliveryPlan = when (deliverySpec.mode) {
         "auxiliary_partition" -> buildAuxiliaryDataPlanFromArtifacts(rendered.artifacts, image)?.let(LocalDeliveryPlan::Auxiliary)
         "fixed_byte_ranges" -> buildFixedByteRangePlanFromArtifacts(rendered.artifacts, image)?.let(LocalDeliveryPlan::FixedByteRanges)
@@ -535,13 +551,16 @@ private fun SparkManifest.artifactFromStaticSpec(
     )
 }
 
-private fun SparkManifest.renderArtifacts(values: Map<String, String>): RenderArtifactsResult {
+private fun SparkManifest.renderArtifacts(
+    values: Map<String, String>,
+    presetPasswords: Map<String, String> = emptyMap(),
+): RenderArtifactsResult {
     requireConfigFieldLengths(values)
     val generated = mutableMapOf<String, RenderedArtifact>()
     val variables = values.toMutableMap()
     val userSecrets = mutableListOf<GeneratedUserSecret>()
 
-    runArtifactActions(actionPhases["on_iso_ready"].orEmpty(), values, variables, generated, userSecrets)
+    runArtifactActions(actionPhases["on_iso_ready"].orEmpty(), values, variables, generated, userSecrets, presetPasswords)
 
     artifacts.forEach { (key, spec) ->
         val specId = spec.artifactId ?: key
@@ -561,18 +580,19 @@ private fun SparkManifest.runArtifactActions(
     variables: MutableMap<String, String>,
     generated: MutableMap<String, RenderedArtifact>,
     userSecrets: MutableList<GeneratedUserSecret>,
+    presetPasswords: Map<String, String> = emptyMap(),
 ) {
     actions.forEach { action ->
         if (!action.whenCondition.matches(conditionValues)) return@forEach
         when (action.type) {
             "generate_ephemeral_password" -> {
                 action.outputVar?.let { outputVar ->
-                    val secret = randomPassword()
+                    val secret = presetPasswords[outputVar] ?: randomPassword()
                     variables[outputVar] = secret
                     if (action.userSecret) {
                         userSecrets += GeneratedUserSecret(
                             id = outputVar,
-                            label = action.userSecretLabel?.ifBlank { null } ?: outputVar.humanizeSecretLabel(),
+                            label = action.secretDisplayLabel(outputVar),
                             value = secret,
                         )
                     }
@@ -641,11 +661,14 @@ private fun SparkManifest.renderedUserSecrets(variables: Map<String, String>): L
         val value = variables[outputVar]?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
         GeneratedUserSecret(
             id = outputVar,
-            label = action.userSecretLabel?.ifBlank { null } ?: outputVar.humanizeSecretLabel(),
+            label = action.secretDisplayLabel(outputVar),
             value = value,
         )
     }
 }
+
+private fun WorkflowAction.secretDisplayLabel(outputVar: String): String =
+    userSecretLabel?.ifBlank { null } ?: outputVar.humanizeSecretLabel()
 
 private fun String.humanizeSecretLabel(): String {
     return removePrefix("generated_")
