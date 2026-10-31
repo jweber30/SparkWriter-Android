@@ -497,7 +497,8 @@ private fun prepareReturnDeliveries(
         "manifest_id" to (intent.tags["manifest_id"] ?: ""),
         "package_id" to (intent.tags["package_id"] ?: ""),
         "device_id" to intent.deviceId,
-        "image_uri" to intent.image.uri,
+        // Redacted: the URI is a local path or document ID, and these variables reach remote templates.
+        "image_uri" to intent.image.uri.logSafe(),
         "image_sha256" to intent.image.sha256,
         "image_size_bytes" to intent.image.sizeBytes.toString(),
         "image_media_type" to intent.image.mediaType,
@@ -560,7 +561,6 @@ private fun buildDefaultWorkflowStartedBody(variables: Map<String, String>): Str
             put("manifest_id", variables["manifest_id"])
             variables["package_id"]?.takeIf { it.isNotBlank() }?.let { put("package_id", it) }
             put("device_id", variables["device_id"])
-            put("image_uri", variables["image_uri"])
             put("image_sha256", variables["image_sha256"])
         },
     )
@@ -575,7 +575,7 @@ internal suspend fun executePreparedReturnDeliveries(
         logger(
             "prepared_delivery event=${delivery.event} " +
                 "method=${delivery.method} required=${delivery.required} " +
-                "url=${delivery.url} bodySize=${delivery.body.length} mediaType=${delivery.mediaType}",
+                "url=${delivery.url.logSafe()} bodySize=${delivery.body.length} mediaType=${delivery.mediaType}",
         )
         val result = runCatching {
             post(delivery)
@@ -583,7 +583,7 @@ internal suspend fun executePreparedReturnDeliveries(
         val failure = result.exceptionOrNull()
         if (failure != null) {
             logger(
-                "delivery_failed event=${delivery.event} method=${delivery.method} url=${delivery.url}: ${failure.message}",
+                "delivery_failed event=${delivery.event} method=${delivery.method} url=${delivery.url.logSafe()}: ${failure.message}",
             )
             val shouldBlock = delivery.required
             runCatching {
@@ -599,7 +599,7 @@ internal suspend fun executePreparedReturnDeliveries(
         } else {
             logger(
                 "delivery_succeeded event=${delivery.event} " +
-                    "method=${delivery.method} url=${delivery.url}",
+                    "method=${delivery.method} url=${delivery.url.logSafe()}",
             )
         }
     }
@@ -829,7 +829,7 @@ private fun buildReceiptPayload(
     put("source_id", intent.tags["source_id"])
     put("adaptation_status", intent.tags["adaptation_status"])
     put("device_id", intent.deviceId)
-    put("image_uri", intent.image.uri)
+    put("image_uri", intent.image.uri.logSafe())
     put("image_sha256", intent.image.sha256)
     put("image_size_bytes", intent.image.sizeBytes)
     put("image_media_type", intent.image.mediaType)

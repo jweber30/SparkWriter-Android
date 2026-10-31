@@ -56,7 +56,7 @@ internal suspend fun publishWriteStartCallbacks(
             log(
                 "prepared_delivery event=${delivery.event} " +
                     "method=${delivery.method} required=${delivery.required} " +
-                    "url=${delivery.url} bodySize=${delivery.body.length} mediaType=${delivery.mediaType}",
+                    "url=${delivery.url.logSafe()} bodySize=${delivery.body.length} mediaType=${delivery.mediaType}",
             )
         }
         executePreparedReturnDeliveries(
