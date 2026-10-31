@@ -26,8 +26,7 @@ The image document is the hand-off point:
   makes the image and generates its image document, including slot offsets.
   See "Proxmox MetalStrap build" below.
 
-One image document can serve many workflows. The bundled Proxmox SparkPlug and
-the Proxmox + Tailscale example share
+One image document can serve many workflows. The bundled Proxmox SparkPlug uses
 `metalstrapper-proxmox-generic-netboot.image.yaml`.
 
 ## Goals

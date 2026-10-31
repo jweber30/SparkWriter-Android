@@ -3,7 +3,7 @@ version: "3.0"
 kind: sparkplug.image
 metadata:
   id: metalstrapper-proxmox-generic-netboot
-  name: MetalStrapper Proxmox generic netboot ISO
+  name: MetalStrapper Proxmox generic ISO
   version: "9.2-1-r1"
   author: MetalStrapper
   description: "Built from proxmox-ve_9.2-1.iso (sha256 4e88fe416df9b527624a175f24c9aa07c714d3332afb1ee3dbf3879573ef2c6c) by jweber30/SparkWriter-Android run 1 at 350fc85afd583bc86d50697db07cd209484a4cb6."

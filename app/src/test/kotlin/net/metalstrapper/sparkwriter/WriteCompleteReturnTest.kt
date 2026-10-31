@@ -426,7 +426,6 @@ class WriteCompleteReturnTest {
         val manifest = installPackageManifestForTest(manifestUrl)
         val values = manifest.activeConfigValues(
             manifest.configFields.associate { field -> field.id to field.default } + mapOf(
-                "tailscale_auth_key" to "tskey-test",
                 "proxmox_root_password" to "test-root-password",
             ),
         )
@@ -453,7 +452,7 @@ class WriteCompleteReturnTest {
 
         val answerBody = postLiveMailroomArtifact(answerDelivery.url, "[first-boot]")
         assertTrue(answerBody.contains("/firstboot"))
-        fetchLiveMailroomArtifact(firstbootDelivery.url, "tailscale up")
+        fetchLiveMailroomArtifact(firstbootDelivery.url, "#!")
         Unit
     }
 

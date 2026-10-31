@@ -4,7 +4,7 @@ version: "3.0"
 kind: sparkplug.image
 metadata:
   id: metalstrapper-proxmox-generic-netboot
-  name: MetalStrapper Proxmox generic netboot ISO
+  name: MetalStrapper Proxmox generic ISO
   version: "${image_version}"
   author: MetalStrapper
   description: ${image_description}

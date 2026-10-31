@@ -112,8 +112,8 @@ auxiliary partition, and records exactly what it wrote.
 version: "2.2"
 metadata:
   manifest_root_sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-  id: proxmox-tailscale-seed
-  name: Proxmox Tailscale Seed
+  id: proxmox-seed
+  name: Proxmox Seed
 
 source:
   id: proxmox-ve-adapted
@@ -221,8 +221,8 @@ look for its answer file and first-boot executable.
 version: "2.2"
 metadata:
   manifest_root_sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-  id: proxmox-tailscale-inline-seed
-  name: Proxmox Tailscale Inline Seed
+  id: proxmox-inline-seed
+  name: Proxmox Inline Seed
 
 source:
   id: proxmox-ve-adapted-inline

@@ -35,23 +35,23 @@ class PackageTemplateFilesTest {
                 "name": "Source",
                 "metadata": {
                   "glint_client_url": "https://glint.example/client",
-                  "tailscale_hostname": "pve1.example"
+                  "site_hostname": "pve1.example"
                 }
               },
               "config_fields": [
-                {"id": "pve_tailscale_auth_key", "label": "PVE Tailscale Auth Key"}
+                {"id": "pve_site_token", "label": "PVE Site Token"}
               ]
             }
             """.trimIndent(),
         )
 
         val values = manifest.activeConfigValues(
-            mapOf("pve_tailscale_auth_key" to "tskey-test"),
+            mapOf("pve_site_token" to "token-test"),
         )
 
         assertEquals("https://glint.example/client", values["glint_client_url"])
-        assertEquals("pve1.example", values["tailscale_hostname"])
-        assertEquals("tskey-test", values["pve_tailscale_auth_key"])
+        assertEquals("pve1.example", values["site_hostname"])
+        assertEquals("token-test", values["pve_site_token"])
     }
 
     @Test
@@ -64,20 +64,20 @@ class PackageTemplateFilesTest {
               "source": {
                 "id": "source",
                 "name": "Source",
-                "metadata": {"tailscale_hostname": "metadata.example"}
+                "metadata": {"site_hostname": "metadata.example"}
               },
               "config_fields": [
-                {"id": "tailscale_hostname", "label": "Tailscale Hostname"}
+                {"id": "site_hostname", "label": "Site Hostname"}
               ]
             }
             """.trimIndent(),
         )
 
         val values = manifest.activeConfigValues(
-            mapOf("tailscale_hostname" to "form.example"),
+            mapOf("site_hostname" to "form.example"),
         )
 
-        assertEquals("form.example", values["tailscale_hostname"])
+        assertEquals("form.example", values["site_hostname"])
     }
 
     @Test
@@ -175,16 +175,16 @@ class PackageTemplateFilesTest {
               id: demo
               name: Demo
             config_fields:
-              - id: tailscale_auth_key
-                label: Tailscale Auth Key
+              - id: site_token
+                label: Site Token
                 type: password
             """.trimIndent(),
         )
 
-        val values = manifest.activeConfigValues(mapOf("tailscale_auth_key" to "tskey-test"))
+        val values = manifest.activeConfigValues(mapOf("site_token" to "token-test"))
 
-        assertEquals("tskey-test", values["tailscale_auth_key"])
-        assertNull(values["pve_tailscale_auth_key"])
+        assertEquals("token-test", values["site_token"])
+        assertNull(values["pve_site_token"])
     }
 
     @Test

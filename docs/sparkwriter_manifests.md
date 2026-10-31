@@ -459,7 +459,7 @@ Useful prototype lines:
 ```text
 d-i mirror/http/proxy string http://apt-proxy:3142
 d-i pkgsel/include string curl ca-certificates
-d-i preseed/late_command string in-target sh -c 'curl -fsSL https://tailscale.com/install.sh | sh && tailscale up --auth-key={{tailscale_auth_key}} --hostname={{tailscale_hostname}}'
+d-i preseed/late_command string in-target sh -c 'echo "Provisioned by SparkWriter for {{hostname}}" > /etc/motd'
 ```
 
 The corresponding manifest should deliver that rendered artifact as

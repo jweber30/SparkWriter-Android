@@ -6,6 +6,7 @@ import net.metalstrapper.sparkwriter.manifest.ManifestRuntime
 import net.metalstrapper.sparkwriter.manifest.ManifestValidationException
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.ByteArrayInputStream
@@ -67,20 +68,19 @@ class SparkPlugImportTest {
         }
     }
 
-    @Test fun bundledTailscaleScriptProducesExpectedFindings() {
+    @Test fun bundledProxmoxScriptProducesExpectedFindings() {
         val file = listOf(
-            File("bundled/proxmox-tailscale.sparkplug.yaml"),
-            File("../examples/proxmox-tailscale.sparkplug.yaml"),
-            File("examples/proxmox-tailscale.sparkplug.yaml"),
+            File("bundled/proxmox-autoinstall.sparkplug.yaml"),
+            File("app/bundled/proxmox-autoinstall.sparkplug.yaml"),
         ).first { it.isFile }
         val scripts = inspectableScripts(runtime.parseWorkflowFile(file, "bundled:${file.name}"))
         val categories = analyzeNotableBehavior(scripts).map { it.category }.toSet()
-        assertTrue("Download and execute" in categories)
         assertTrue("Repository changes" in categories)
         assertTrue("Package management" in categories)
         assertTrue("Privileged startup" in categories)
-        assertTrue("Remote access" in categories)
-        assertTrue("Credential use" in categories)
+        assertFalse("Download and execute" in categories)
+        assertFalse("Remote access" in categories)
+        assertFalse("Credential use" in categories)
     }
 
     private fun packageZip(vararg files: Pair<String, String>): File {

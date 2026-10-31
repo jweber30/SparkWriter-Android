@@ -24,8 +24,7 @@ A SparkPlug has two documents:
 An image document is hand-written for a stock image (for example Ubuntu or
 Debian straight from upstream). For a custom image built on a Linux host, the
 build (a MetalStrap, see `METALSTRAP.md`) generates it. One image can serve
-many workflows: the bundled Proxmox SparkPlug and the Proxmox + Tailscale
-example share one image document.
+many workflows, each naming it in `image:`.
 
 v3.0 is the only version Android accepts. A package root, workflow, or image
 document with any other `version` is rejected. v2.3 single-document manifests

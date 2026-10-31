@@ -92,14 +92,14 @@ class AuxiliaryDataTest {
                 - fqdn = "{{hostname}}"
               firstboot_script:
                 - "#!/usr/bin/env bash"
-                - tailscale up --auth-key={{pve_tailscale_auth_key}}
+                - echo {{pve_site_note}}
             """.trimIndent(),
         )
 
         val plan = manifest.buildAuxiliaryDataPlan(
             mapOf(
                 "hostname" to "pve1-test.srv.home.arpa",
-                "pve_tailscale_auth_key" to "tskey-test",
+                "pve_site_note" to "site-note-test",
             ),
         )
 
@@ -111,7 +111,7 @@ class AuxiliaryDataTest {
         assertEquals(536870912L, plan.geometry?.byteOffset)
         assertTrue(plan.files.single { it.path == "/answer.toml" }.content.contains("fqdn = \"pve1-test.srv.home.arpa\""))
         assertTrue(plan.files.single { it.path == "/firstboot.sh" }.executable)
-        assertTrue(plan.files.single { it.path == "/firstboot.sh" }.content.contains("tskey-test"))
+        assertTrue(plan.files.single { it.path == "/firstboot.sh" }.content.contains("echo site-note-test"))
     }
 
     @Test
@@ -221,31 +221,22 @@ class AuxiliaryDataTest {
 
         assertTrue(sparkplugs.isNotEmpty())
         assertEquals(
-            listOf("debian-https-preseed", "proxmox-autoinstall", "proxmox-tailscale", "ubuntu-autoinstall"),
+            listOf("debian-https-preseed", "proxmox-autoinstall", "ubuntu-autoinstall"),
             sparkplugs.map { runtime.parseWorkflowFile(it).metadata.id }.sorted(),
         )
     }
 
     @Test
-    fun bundledProxmoxTailscaleBuildsIsoPlaceholderPatches() {
-        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-tailscale.sparkplug.yaml"))
+    fun bundledProxmoxBuildsIsoPlaceholderPatches() {
+        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-autoinstall.sparkplug.yaml"))
         val preparation = manifest.buildLocalDeliveryPreparation(
-            mapOf(
-                "pve_fqdn" to "pve1-test.srv.home.arpa",
-                "pve_keyboard" to "en-us",
-                "pve_country" to "us",
-                "pve_timezone" to "America/Denver",
-                "pve_mailto" to "root@example.invalid",
-                "pve_network_source" to "from-dhcp",
-                "pve_network_cidr" to "",
-                "pve_network_gateway" to "",
-                "pve_network_dns" to "",
-                "pve_disk_filesystem" to "zfs",
-                "pve_disk_list" to """["sda", "sdb"]""",
-                "pve_zfs_raid" to "raid1",
-                "pve_root_ssh_keys" to """["ssh-ed25519 AAAATEST root@test"]""",
-                "pve_reboot_mode" to "reboot",
-                "tailscale_auth_key" to "tskey-test",
+            manifest.activeConfigValues(
+                proxmoxValues(
+                    "pve_disk_filesystem" to "zfs",
+                    "pve_disk_list" to """["sda", "sdb"]""",
+                    "pve_zfs_raid" to "raid1",
+                    "pve_root_ssh_keys" to """["ssh-ed25519 AAAATEST root@test"]""",
+                ),
             ),
         )
 
@@ -253,7 +244,7 @@ class AuxiliaryDataTest {
         assertNull(preparation.returnPlan)
 
         val plan = preparation.deliveryPlan as LocalDeliveryPlan.FixedByteRanges
-        assertEquals("fd438f0233337849e41a8ec632275bc769657e4befe64b25078fa1e9178c0b29", plan.plan.baseImageSha256)
+        assertEquals("2174f465f18945102a5a9a0e689dd9b15df8568e094e0fea1aef0b34f00f45d2", plan.plan.baseImageSha256)
 
         val answerPatch = plan.plan.patches.single { it.id == "answer_toml" }
         assertEquals("answer.toml", answerPatch.logicalName)
@@ -273,7 +264,7 @@ class AuxiliaryDataTest {
         assertTrue(answerPatch.content.contains("""root-ssh-keys = ["ssh-ed25519 AAAATEST root@test"]"""))
         assertTrue(answerPatch.content.contains("""zfs.raid = "raid1""""))
         assertTrue(answerPatch.content.contains("""source = "from-iso""""))
-        assertTrue(answerPatch.content.contains("""ordering = "fully-up""""))
+        assertTrue(answerPatch.content.contains("""ordering = "before-network""""))
         assertFalse(answerPatch.content.contains("wri7e.net"))
         assertFalse(answerPatch.content.contains("mailroom"))
 
@@ -283,29 +274,20 @@ class AuxiliaryDataTest {
         assertEquals(65536L, firstbootPatch.byteLength)
         assertEquals("metalstrapper-patch-slot", firstbootPatch.placeholder?.encoding)
         assertEquals("shell-comment", firstbootPatch.padding?.strategy)
-        assertTrue(firstbootPatch.content.contains("normalize_proxmox_repositories"))
-        assertTrue(firstbootPatch.content.contains("URIs: http://download.proxmox.com/debian/pve"))
-        assertTrue(firstbootPatch.content.contains("URIs: http://download.proxmox.com/debian/ceph-squid"))
-        assertTrue(firstbootPatch.content.contains("Suites: trixie"))
-        assertTrue(firstbootPatch.content.contains("curl -fsSL https://tailscale.com/install.sh | sh"))
-        assertTrue(firstbootPatch.content.contains("""tailscale_auth_key='tskey-test'"""))
-        assertFalse(firstbootPatch.content.contains("tailscale_hostname"))
-        assertTrue(firstbootPatch.content.contains("""tailscale up --ssh --auth-key="${'$'}tailscale_auth_key"""))
-        assertFalse(firstbootPatch.content.contains("--hostname="))
-        assertTrue(
-            "Proxmox repositories must be normalized before invoking the Tailscale installer",
-            firstbootPatch.content.indexOf("      normalize_proxmox_repositories") <
-                firstbootPatch.content.indexOf("curl -fsSL https://tailscale.com/install.sh | sh"),
-        )
+        assertTrue(firstbootPatch.content.contains("use_community_repositories"))
+        assertTrue(firstbootPatch.content.contains("URIs: https://download.proxmox.com/debian/pve"))
+        assertFalse(firstbootPatch.content.contains("curl"))
     }
 
     @Test
     fun bundledProxmoxEscapesHostileFieldValues() {
-        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-tailscale.sparkplug.yaml"))
+        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-autoinstall.sparkplug.yaml"))
         val preparation = manifest.buildLocalDeliveryPreparation(
-            proxmoxValues(
-                "pve_mailto" to "root@example.invalid\"\n[first-boot]\nsource = \"from-url",
-                "tailscale_auth_key" to "tskey-'; echo pwned #",
+            manifest.activeConfigValues(
+                proxmoxValues(
+                    "pve_mailto" to "root@example.invalid\"\n[first-boot]\nsource = \"from-url",
+                    "pve_fqdn" to "pve1'; echo pwned #",
+                ),
             ),
         )
         val patches = (preparation.deliveryPlan as LocalDeliveryPlan.FixedByteRanges).plan.patches
@@ -314,12 +296,12 @@ class AuxiliaryDataTest {
 
         assertTrue(answer.contains("""mailto = "root@example.invalid\"\n[first-boot]\nsource = \"from-url""""))
         assertEquals(1, Regex("""^\s*\[first-boot\]""", RegexOption.MULTILINE).findAll(answer).count())
-        assertTrue(script.contains("""tailscale_auth_key='tskey-'\''; echo pwned #'"""))
+        assertTrue(script.contains("""fqdn='pve1'\''; echo pwned #'"""))
     }
 
     @Test
     fun renderEnforcesMaxLengthEvenWhenEditorIsBypassed() {
-        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-tailscale.sparkplug.yaml"))
+        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-autoinstall.sparkplug.yaml"))
         val error = assertThrows(IllegalStateException::class.java) {
             manifest.buildLocalDeliveryPreparation(proxmoxValues("pve_fqdn" to "a".repeat(254)))
         }
@@ -350,12 +332,13 @@ class AuxiliaryDataTest {
         "pve_zfs_raid" to "",
         "pve_root_ssh_keys" to "[]",
         "pve_reboot_mode" to "reboot",
-        "tailscale_auth_key" to "tskey-test",
+        "pve_community_repos" to "community",
+        "pve_firstboot_command" to "",
     ) + overrides
 
     @Test
-    fun bundledProxmoxTailscaleDhcpDoesNotRequireHiddenStaticNetworkFields() {
-        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-tailscale.sparkplug.yaml"))
+    fun bundledProxmoxDhcpDoesNotRequireHiddenStaticNetworkFields() {
+        val manifest = runtime.parseWorkflowFile(bundledSparkplug("proxmox-autoinstall.sparkplug.yaml"))
         val values = manifest.activeConfigValues(
             mapOf(
                 "pve_fqdn" to "pve1-test.srv.home.arpa",
@@ -368,7 +351,8 @@ class AuxiliaryDataTest {
                 "pve_disk_list" to """["sda"]""",
                 "pve_root_ssh_keys" to "[]",
                 "pve_reboot_mode" to "reboot",
-                "tailscale_auth_key" to "tskey-test",
+                "pve_community_repos" to "community",
+                "pve_firstboot_command" to "",
             ),
         )
 

@@ -18,7 +18,7 @@ class ExternalServicePolicyTest {
 
     @Test
     fun bundledProxmoxStaysRunnable() {
-        val manifest = releaseRuntime.parseWorkflowFile(example("proxmox-tailscale.sparkplug.yaml"))
+        val manifest = releaseRuntime.parseWorkflowFile(File(repoRoot, "app/bundled/proxmox-autoinstall.sparkplug.yaml"))
         assertEquals(emptyList<String>(), manifest.unsupportedReasons)
         assertTrue(manifest.isAndroidRunnable)
     }
