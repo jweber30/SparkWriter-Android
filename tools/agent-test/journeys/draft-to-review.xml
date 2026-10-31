@@ -1,0 +1,32 @@
+<!-- Run with an agent that has the android CLI skill:
+     "Evaluate tools/agent-test/journeys/draft-to-review.xml on the connected device."
+     The first action sends the draft; the rest check what the user sees. -->
+<journey name="Assistant draft opens Review">
+  <description>
+    A complete Proxmox draft from another app opens SparkWriter on its Review step,
+    marks the values it filled, and does not start writing.
+  </description>
+  <actions>
+    <action>
+      Run tools/agent-test/replay-scenario.sh tools/agent-test/scenarios/proxmox-static-vlan.properties
+    </action>
+    <action>
+      If an "Allow write notifications?" dialog is shown, tap "Not now"
+    </action>
+    <action>
+      Verify that SparkWriter shows "Proxmox VE" and a "Review" heading under Configuration
+    </action>
+    <action>
+      Verify that "pve2.srv.home.arpa" is shown with "Prefilled from another app" below it
+    </action>
+    <action>
+      Scroll down in the Review list until "Management VLAN ID" is visible
+    </action>
+    <action>
+      Verify that "Management VLAN ID" shows 30 and "Prefilled from another app"
+    </action>
+    <action>
+      Verify that no write or save progress is shown
+    </action>
+  </actions>
+</journey>
