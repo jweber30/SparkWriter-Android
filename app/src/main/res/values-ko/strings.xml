@@ -120,7 +120,7 @@
     <string name="continue_label">계속</string>
     <string name="generated_credentials">생성된 로그인 정보</string>
     <string name="usb_target">대상 USB</string>
-    <string name="verify_base_image_after_write">쓰기 후 기본 이미지 확인</string>
+    <string name="verify_usb_after_write">쓰기 후 완성된 USB 확인</string>
     <string name="start_write">쓰기 시작</string>
     <string name="saving_ellipsis">저장 중…</string>
     <string name="save_assembled_iso">완성된 ISO 저장</string>

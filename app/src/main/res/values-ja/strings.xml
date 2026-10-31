@@ -114,7 +114,7 @@
     <string name="advanced">詳細設定</string>
     <string name="generated_credentials">生成された認証情報</string>
     <string name="usb_target">対象の USB デバイス</string>
-    <string name="verify_base_image_after_write">書き込み後にベース イメージを検証する</string>
+    <string name="verify_usb_after_write">書き込み後に完成した USB を検証する</string>
     <string name="start_write">書き込み開始</string>
     <string name="save_assembled_iso">組み立てられた ISO を保存</string>
     <string name="save_assembled_image">組み立てられたイメージを保存</string>

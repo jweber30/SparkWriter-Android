@@ -114,7 +114,7 @@
     <string name="advanced">高级</string>
     <string name="generated_credentials">生成的凭据</string>
     <string name="usb_target">USB 目标设备</string>
-    <string name="verify_base_image_after_write">写入后验证基础映像</string>
+    <string name="verify_usb_after_write">写入后验证完成的 USB</string>
     <string name="start_write">开始写入</string>
     <string name="save_assembled_iso">保存已组装的 ISO</string>
     <string name="save_assembled_image">保存已组装的映像</string>

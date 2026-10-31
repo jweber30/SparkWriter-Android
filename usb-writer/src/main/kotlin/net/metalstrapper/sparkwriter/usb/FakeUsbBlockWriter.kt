@@ -4,6 +4,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import net.metalstrapper.sparkwriter.core.BlockDeviceInfo
+import net.metalstrapper.sparkwriter.core.ByteExtent
+import net.metalstrapper.sparkwriter.core.FinalImageDigest
 import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.DeviceRef
 import net.metalstrapper.sparkwriter.core.PermissionResult
@@ -66,6 +68,24 @@ class FakeUsbBlockWriter(
     override fun verifyImage(intent: WriteIntent): Flow<VerifyProgress> = flow {
         val total = intent.image.sizeBytes
         emit(VerifyProgress(total, total, "Fake full-image verification complete", completed = true, verified = true))
+    }
+
+    override fun verifyFinalImage(intent: WriteIntent): Flow<VerifyProgress> = flow {
+        val total = intent.image.sizeBytes
+        emit(
+            VerifyProgress(
+                bytesRead = total,
+                totalBytes = total,
+                message = "Fake finished-image verification complete",
+                completed = true,
+                verified = true,
+                finalImage = FinalImageDigest(
+                    sha256 = intent.image.sha256,
+                    totalBytes = total,
+                    extents = listOf(ByteExtent(0, total)),
+                ),
+            ),
+        )
     }
 }
 

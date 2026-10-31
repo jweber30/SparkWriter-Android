@@ -81,7 +81,7 @@
     <string name="back">Retour</string>
     <string name="start_write">Démarrer l\'écriture</string>
     <string name="usb_target">Cible USB</string>
-    <string name="verify_base_image_after_write">Vérifier l\'image de base après l\'écriture</string>
+    <string name="verify_usb_after_write">Vérifier la clé USB terminée après l\'écriture</string>
     <string name="pick_iso">Choisir l\'ISO</string>
     <string name="open_download">Ouvrir le téléchargement</string>
     <string name="download_then_pick_iso">Téléchargez le manifeste, puis choisissez l\'ISO téléchargée.</string>
