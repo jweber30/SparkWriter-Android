@@ -87,6 +87,7 @@ internal fun WorkflowPane(
     importedImage: VerifiedImage?,
     generatedSecrets: Map<String, String>,
     onGeneratedSecrets: (Map<String, String>) -> Unit,
+    draft: AppliedConfigDraft?,
     usbWriter: UsbBlockWriter,
     isoIndexStore: IsoIndexStore,
     status: String,
@@ -262,16 +263,8 @@ internal fun WorkflowPane(
     val currentPageFields = currentConfigPage?.fields.orEmpty()
     val primaryPageFields = currentPageFields.filter { !it.advanced || it.whenCondition != null }
     val advancedPageFields = currentPageFields.filter { it.advanced && it.whenCondition == null }
-    val currentPageComplete = currentPageFields.all { field ->
-        (!field.blocksUserProgressWhenBlank() || values.valueFor(field).isNotBlank()) &&
-            !field.exceedsMaxLength(values.valueFor(field)) &&
-            !field.violatesPattern(values.valueFor(field))
-    }
-    val requiredConfigComplete = activeConfigFields.all { field ->
-        (!field.blocksUserProgressWhenBlank() || values.valueFor(field).isNotBlank()) &&
-            !field.exceedsMaxLength(values.valueFor(field)) &&
-            !field.violatesPattern(values.valueFor(field))
-    }
+    val currentPageComplete = currentPageFields.all { field -> field.isCompleteFor(values.valueFor(field)) }
+    val requiredConfigComplete = activeConfigFields.all { field -> field.isCompleteFor(values.valueFor(field)) }
     val startWriteEnabled = !writeActive &&
         confirmedDeviceId == selectedDeviceId && selectedDeviceId != null &&
         selectedDeviceId != null &&
@@ -317,6 +310,23 @@ internal fun WorkflowPane(
     val prefillReadOnlyFields = remember(manifest.metadata.id) { mutableStateMapOf<String, Boolean>() }
     val fetchingPrefillButtons = remember(manifest.metadata.id) { mutableStateMapOf<String, Boolean>() }
 
+    // Runs after the defaults effect above (effects launch in composition order), so a
+    // draft value replaces a default. Profile suggestions stay suggestions.
+    LaunchedEffect(manifest.metadata.id, draft?.nonce) {
+        val applied = draft?.takeIf { it.manifestId == manifest.metadata.id } ?: return@LaunchedEffect
+        val draftProvenance = PrefillProvenance(
+            kind = PrefillSourceKind.Draft,
+            id = "draft",
+            label = context.getString(R.string.draft_source_label),
+        )
+        applied.values.forEach { (formFieldId, value) ->
+            values[formFieldId] = value
+            prefillProvenance[formFieldId] = draftProvenance
+            prefillReadOnlyFields.remove(formFieldId)
+        }
+        configPageIndex = manifest.draftLandingStep(values)
+        focusPageHeading = true
+    }
     LaunchedEffect(totalConfigSteps) {
         if (configPageIndex >= totalConfigSteps) {
             configPageIndex = (totalConfigSteps - 1).coerceAtLeast(0)
@@ -1050,9 +1060,8 @@ internal fun WorkflowPane(
 internal fun ConfigField.requiredLabel(): String = label + if (required) " *" else ""
 internal fun ConfigField.isUserEditable(): Boolean = !disabled && !immutable
 private fun ConfigField.isWizardEditable(): Boolean = isUserEditable() && type != "info"
-private fun ConfigField.blocksUserProgressWhenBlank(): Boolean = required && isUserEditable()
 
-internal enum class PrefillSourceKind { HostProfile, RemoteButton }
+internal enum class PrefillSourceKind { HostProfile, RemoteButton, Draft }
 
 internal data class PrefillProvenance(
     val kind: PrefillSourceKind,

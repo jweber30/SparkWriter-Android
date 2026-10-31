@@ -240,4 +240,9 @@
     <string name="shared_text_custom">사용자 지정</string>
     <string name="shared_text_reboot">재부팅</string>
     <string name="shared_text_power_off">전원 끄기</string>
+    <string name="draft_source_label">다른 앱</string>
+    <string name="draft_opened">%1$s 초안을 열었습니다. 쓰기 전에 모든 값을 확인하세요.</string>
+    <string name="draft_values_skipped">적용되지 않음: %1$s</string>
+    <string name="draft_unknown_sparkplug">ID가 %1$s인 SparkPlug가 설치되어 있지 않습니다</string>
+    <string name="draft_ignored_during_write">쓰기가 진행 중이어서 구성 초안을 무시했습니다</string>
 </resources>

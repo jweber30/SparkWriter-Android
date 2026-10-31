@@ -240,4 +240,9 @@
     <string name="shared_text_custom">カスタム</string>
     <string name="shared_text_reboot">再起動</string>
     <string name="shared_text_power_off">電源オフ</string>
+    <string name="draft_source_label">別のアプリ</string>
+    <string name="draft_opened">%1$s の下書きを開きました。書き込む前にすべての値を確認してください。</string>
+    <string name="draft_values_skipped">適用されなかった値: %1$s</string>
+    <string name="draft_unknown_sparkplug">ID が %1$s の SparkPlug はインストールされていません</string>
+    <string name="draft_ignored_during_write">書き込み中のため、構成の下書きを無視しました</string>
 </resources>

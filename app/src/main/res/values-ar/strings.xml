@@ -239,4 +239,9 @@
     <string name="shared_text_custom">مخصص</string>
     <string name="shared_text_reboot">إعادة التشغيل</string>
     <string name="shared_text_power_off">إيقاف التشغيل</string>
+    <string name="draft_source_label">تطبيق آخر</string>
+    <string name="draft_opened">تم فتح مسودة %1$s. تحقّق من كل قيمة قبل الكتابة.</string>
+    <string name="draft_values_skipped">لم يُطبَّق: %1$s</string>
+    <string name="draft_unknown_sparkplug">لا يوجد SparkPlug مثبّت بالمعرّف %1$s</string>
+    <string name="draft_ignored_during_write">تم تجاهل مسودة الإعداد لأن عملية كتابة قيد التنفيذ</string>
 </resources>

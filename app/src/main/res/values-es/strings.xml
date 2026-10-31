@@ -239,4 +239,9 @@
     <string name="shared_text_custom">Personalizado</string>
     <string name="shared_text_reboot">Reiniciar</string>
     <string name="shared_text_power_off">Apagar</string>
+    <string name="draft_source_label">otra aplicación</string>
+    <string name="draft_opened">Borrador para %1$s abierto. Revisa cada valor antes de escribir.</string>
+    <string name="draft_values_skipped">No aplicado: %1$s</string>
+    <string name="draft_unknown_sparkplug">Ningún SparkPlug instalado tiene el id %1$s</string>
+    <string name="draft_ignored_during_write">Se ignoró un borrador de configuración porque hay una escritura en curso</string>
 </resources>

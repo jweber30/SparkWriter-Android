@@ -18,9 +18,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 }
 
 dependencies {
@@ -30,4 +27,10 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.kotlinx.serialization.json)
     ksp(libs.androidx.room.compiler)
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }

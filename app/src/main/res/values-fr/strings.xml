@@ -239,4 +239,9 @@
     <string name="shared_text_custom">Personnalisé</string>
     <string name="shared_text_reboot">Redémarrer</string>
     <string name="shared_text_power_off">Éteindre</string>
+    <string name="draft_source_label">une autre application</string>
+    <string name="draft_opened">Brouillon pour %1$s ouvert. Vérifiez chaque valeur avant l\'écriture.</string>
+    <string name="draft_values_skipped">Non appliqué\u00A0: %1$s</string>
+    <string name="draft_unknown_sparkplug">Aucun SparkPlug installé n\'a l\'identifiant %1$s</string>
+    <string name="draft_ignored_during_write">Brouillon de configuration ignoré, car une écriture est en cours</string>
 </resources>

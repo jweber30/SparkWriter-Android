@@ -1,0 +1,20 @@
+<journey name="Draft without a MAC opens the Network page">
+  <description>
+    A draft that asks for a MAC-pinned NIC but gives no MAC opens on the Network
+    page, so the user types the MAC instead of the assistant inventing one.
+  </description>
+  <actions>
+    <action>
+      Run tools/agent-test/replay-scenario.sh tools/agent-test/scenarios/proxmox-mac-pinned-missing-mac.properties
+    </action>
+    <action>
+      If an "Allow write notifications?" dialog is shown, tap "Not now"
+    </action>
+    <action>
+      Verify that the Configuration card shows the "Network" page, not "Review"
+    </action>
+    <action>
+      Verify that a "Management NIC MAC" field is shown and is empty
+    </action>
+  </actions>
+</journey>
