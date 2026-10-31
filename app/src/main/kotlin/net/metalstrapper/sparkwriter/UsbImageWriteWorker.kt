@@ -92,21 +92,6 @@ class UsbImageWriteWorker(
     private val usbWriter = AndroidUsbHostBlockWriter(context = appContext)
 
     override suspend fun doWork(): Result {
-        val auxiliaryDataFile = inputData.getString(UsbWriteData.KEY_AUXILIARY_DATA_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
-        val fixedByteRangeFile = inputData.getString(UsbWriteData.KEY_FIXED_BYTE_RANGE_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
-        val bootPatchFile = inputData.getString(UsbWriteData.KEY_BOOT_PATCH_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
-        val bootPatchTemplateFile = inputData.getString(UsbWriteData.KEY_BOOT_PATCH_TEMPLATE_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
-        val returnPlanFile = inputData.getString(UsbWriteData.KEY_RETURN_PLAN_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
         var writeIntent: WriteIntent? = null
         var completedReceiptPersisted = false
         return try {
@@ -225,11 +210,7 @@ class UsbImageWriteWorker(
             }
             Result.failure(workDataOf(UsbWriteData.KEY_MESSAGE to message))
         } finally {
-            auxiliaryDataFile?.delete()
-            fixedByteRangeFile?.delete()
-            bootPatchFile?.delete()
-            bootPatchTemplateFile?.delete()
-            returnPlanFile?.delete()
+            deletePersistedInput(inputData)
         }
     }
 
@@ -333,6 +314,24 @@ class UsbImageWriteWorker(
     }
 
     companion object {
+        private val PERSISTED_FILE_KEYS = listOf(
+            UsbWriteData.KEY_AUXILIARY_DATA_FILE,
+            UsbWriteData.KEY_FIXED_BYTE_RANGE_FILE,
+            UsbWriteData.KEY_BOOT_PATCH_FILE,
+            UsbWriteData.KEY_BOOT_PATCH_TEMPLATE_FILE,
+            UsbWriteData.KEY_RETURN_PLAN_FILE,
+        )
+
+        /**
+         * Deletes the plan files [inputData] wrote to app storage. They can hold generated
+         * secrets, so they are removed when the worker ends and when a request never runs.
+         */
+        fun deletePersistedInput(data: Data) {
+            PERSISTED_FILE_KEYS.forEach { key ->
+                data.getString(key)?.ifBlank { null }?.let { File(it).delete() }
+            }
+        }
+
         fun inputData(
             context: Context,
             deviceId: String,

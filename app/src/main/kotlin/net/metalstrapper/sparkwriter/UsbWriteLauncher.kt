@@ -95,32 +95,58 @@ internal suspend fun writeUsbWithWorkManager(
     if (activeUsbWriteWorkInfo(workManager) != null) {
         error("A USB write is already in progress")
     }
+    val input = UsbImageWriteWorker.inputData(
+        context = context,
+        deviceId = deviceId,
+        confirmedDevice = confirmedDevice,
+        image = image,
+        verifyAfter = verifyAfter,
+        auxiliaryData = auxiliaryData,
+        fixedByteRanges = fixedByteRanges,
+        bootPatch = bootPatch,
+        bootPatchTemplate = bootPatchTemplate,
+        returnPlan = returnPlan,
+        tags = tags,
+    )
     val request = OneTimeWorkRequestBuilder<UsbImageWriteWorker>()
-        .setInputData(
-            UsbImageWriteWorker.inputData(
-                context = context,
-                deviceId = deviceId,
-                confirmedDevice = confirmedDevice,
-                image = image,
-                verifyAfter = verifyAfter,
-                auxiliaryData = auxiliaryData,
-                fixedByteRanges = fixedByteRanges,
-                bootPatch = bootPatch,
-                bootPatchTemplate = bootPatchTemplate,
-                returnPlan = returnPlan,
-                tags = tags,
-            ),
-        )
+        .setInputData(input)
         .addTag(USB_WRITE_TAG)
         .addTag("sparkwriter-device-$deviceId")
         .build()
 
-    workManager.enqueueUniqueWork(
-        USB_WRITE_UNIQUE_WORK_NAME,
-        ExistingWorkPolicy.KEEP,
-        request,
+    requireOwnRequestEnqueued(
+        requestId = request.id,
+        enqueue = {
+            withContext(Dispatchers.IO) {
+                workManager.enqueueUniqueWork(USB_WRITE_UNIQUE_WORK_NAME, ExistingWorkPolicy.KEEP, request)
+                    .result.get()
+            }
+        },
+        isEnqueued = { id -> withContext(Dispatchers.IO) { workManager.getWorkInfoById(id).get() != null } },
+        discardInput = { UsbImageWriteWorker.deletePersistedInput(input) },
     )
     return pollUsbWriteWork(workManager, request.id, onProgress)
+}
+
+/**
+ * Enqueues unique work under KEEP and confirms this request is the one that will run. If another
+ * write started between the in-progress check and the enqueue, KEEP silently drops this request,
+ * so polling its ID would wait on work that never runs; that case is refused instead, and the
+ * dropped request's persisted input is deleted.
+ */
+internal suspend fun requireOwnRequestEnqueued(
+    requestId: java.util.UUID,
+    enqueue: suspend () -> Unit,
+    isEnqueued: suspend (java.util.UUID) -> Boolean,
+    discardInput: () -> Unit,
+) {
+    try {
+        enqueue()
+        if (!isEnqueued(requestId)) error("A USB write is already in progress")
+    } catch (error: Throwable) {
+        discardInput()
+        throw error
+    }
 }
 
 internal suspend fun prepareBootPatchTemplate(
