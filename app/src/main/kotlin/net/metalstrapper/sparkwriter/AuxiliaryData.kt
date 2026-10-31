@@ -725,7 +725,7 @@ private fun validateMailroomWriteReadyDelivery(
     }
     if (matches.isEmpty()) {
         val method = if (url.endsWith("/compact/v1/artifacts")) "POST" else "PUT"
-        error("Mailroom $kind payload requires a required write_ready $method to $url")
+        error("Mailroom $kind payload requires a required write_ready $method to ${url.logSafe()}")
     }
     val expectedMethod = if (url.endsWith("/compact/v1/artifacts")) "POST" else "PUT"
     val deliverable = matches.any { delivery ->

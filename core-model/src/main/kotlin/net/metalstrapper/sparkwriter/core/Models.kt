@@ -531,6 +531,8 @@ data class WriteIntent(
     val bootPatchTemplate: BootPatchTemplatePlan? = null,
     val returnPlan: WriteReturnPlan? = null,
     val tags: Map<String, String> = emptyMap(),
+    /** Identity of the device the user confirmed; writes are refused without it. */
+    val confirmedDevice: DeviceFingerprint? = null,
 )
 
 @Serializable
@@ -613,6 +615,25 @@ data class BlockDeviceInfo(
     val blockSize: Int = 512,
     val blockCount: Long,
     val permissionGranted: Boolean,
+    /** Physical identity of the device; null until USB permission allows reading it. */
+    val fingerprint: DeviceFingerprint? = null,
+)
+
+/**
+ * What identifies a physical USB drive across the time between the user's confirmation and the
+ * write: Android's device ID is only a per-attachment handle that restarts after a reboot. Two
+ * identical drives without serial numbers cannot be told apart, so the serial is compared
+ * whenever the device reports one.
+ */
+@Serializable
+data class DeviceFingerprint(
+    val vendorId: Int,
+    val productId: Int,
+    val manufacturerName: String? = null,
+    val productName: String? = null,
+    val serialNumber: String? = null,
+    val blockSize: Int,
+    val blockCount: Long,
 )
 
 sealed interface PermissionResult {

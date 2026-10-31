@@ -2,6 +2,7 @@ package net.metalstrapper.sparkwriter.usb
 
 import net.metalstrapper.sparkwriter.core.BlockDeviceInfo
 import net.metalstrapper.sparkwriter.core.AuxiliaryDataPlan
+import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.VerifiedImage
 import net.metalstrapper.sparkwriter.core.WriteIntent
 import java.io.InputStream
@@ -19,6 +20,11 @@ fun validateWriteIntent(intent: WriteIntent, probed: BlockDeviceInfo) {
     if (intent.deviceId != device.id) {
         throw WriteRefusedException("Confirmed device no longer matches the connected device")
     }
+    val confirmed = intent.confirmedDevice
+        ?: throw WriteRefusedException("Write has no confirmed device identity")
+    val current = probed.fingerprint
+        ?: throw WriteRefusedException("Connected device identity could not be read")
+    requireSameDevice(confirmed, current)
     if (device.isSystemDevice || !device.removable) {
         throw WriteRefusedException("Target does not look like removable USB storage")
     }
@@ -59,6 +65,24 @@ fun requireApprovedDigest(stream: DigestInputStream, image: VerifiedImage) {
     if (!actual.equals(image.sha256, ignoreCase = true)) {
         throw WriteRefusedException(
             "Image changed after it was verified: read sha256 $actual, approved ${image.sha256.lowercase()}",
+        )
+    }
+}
+
+/**
+ * Refuses when [current] is not the device the user confirmed. The message names which
+ * properties differ but not their values, since serial numbers end up in logs and receipts.
+ */
+fun requireSameDevice(confirmed: DeviceFingerprint, current: DeviceFingerprint) {
+    val differences = buildList {
+        if (confirmed.vendorId != current.vendorId || confirmed.productId != current.productId) add("USB vendor/product ID")
+        if (confirmed.manufacturerName != current.manufacturerName || confirmed.productName != current.productName) add("name")
+        if (confirmed.serialNumber != current.serialNumber) add("serial number")
+        if (confirmed.blockSize != current.blockSize || confirmed.blockCount != current.blockCount) add("capacity")
+    }
+    if (differences.isNotEmpty()) {
+        throw WriteRefusedException(
+            "Connected USB device is not the one confirmed (${differences.joinToString()} changed); confirm the device again",
         )
     }
 }

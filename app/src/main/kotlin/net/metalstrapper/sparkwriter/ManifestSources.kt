@@ -145,7 +145,7 @@ internal fun preflightManifestSource(runtime: ManifestRuntime, manifestUrl: Stri
 internal fun installManifestFromUrl(runtime: ManifestRuntime, manifestUrl: String): SparkManifest {
     val budget = SparkPlugDownloadBudget(MAX_SPARKPLUG_BYTES)
     runtime.validateInstallUrl(manifestUrl)
-    Log.d("SparkWriter", "Fetching package root: $manifestUrl")
+    Log.d("SparkWriter", "Fetching package root: ${manifestUrl.logSafe()}")
     val packageRootText = fetchText(manifestUrl, budget)
     val packageRoot = runtime.parsePackageRoot(packageRootText, installOrigin = manifestUrl)
     val packageRootSha256 = packageRoot.manifestRootSha256 ?: packageRootText.toByteArray(Charsets.UTF_8).sha256()
@@ -261,7 +261,7 @@ private fun PackageDocumentRef.readText(packageUrl: String, budget: SparkPlugDow
     inline?.let { return it.utf8Text() }
     val documentUrl = url ?: throw ManifestValidationException("SparkPlug document is missing url")
     val resolvedUrl = ManifestRuntime().resolvePackageReferenceUrl(packageUrl, documentUrl)
-    Log.d("SparkWriter", "Fetching SparkPlug ${role} document: $resolvedUrl")
+    Log.d("SparkWriter", "Fetching SparkPlug ${role} document: ${resolvedUrl.logSafe()}")
     return fetchText(resolvedUrl, budget)
 }
 
@@ -293,7 +293,7 @@ private fun PackageFileRef.readText(packageUrl: String, budget: SparkPlugDownloa
     inline?.let { return it.utf8Text() }
     val fileUrl = url ?: throw ManifestValidationException("SparkPlug file is missing url")
     val resolvedUrl = ManifestRuntime().resolvePackageReferenceUrl(packageUrl, fileUrl)
-    Log.d("SparkWriter", "Fetching SparkPlug ${role ?: "package"} file: $resolvedUrl")
+    Log.d("SparkWriter", "Fetching SparkPlug ${role ?: "package"} file: ${resolvedUrl.logSafe()}")
     return fetchText(resolvedUrl, budget)
 }
 

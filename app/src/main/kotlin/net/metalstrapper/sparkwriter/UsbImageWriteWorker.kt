@@ -38,6 +38,7 @@ import net.metalstrapper.sparkwriter.core.BootPatchPlan
 import net.metalstrapper.sparkwriter.core.BootPatchTemplatePlan
 import net.metalstrapper.sparkwriter.core.BootPlaceholderPatchSpec
 import net.metalstrapper.sparkwriter.core.BootScriptPatchSpec
+import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.BootTextPatchSpec
 import net.metalstrapper.sparkwriter.core.FinalImageDigest
 import net.metalstrapper.sparkwriter.core.FixedByteRangePlan
@@ -69,6 +70,7 @@ private const val USB_WRITE_COMPLETE_NOTIFICATION_ID = 3002
 
 object UsbWriteData {
     const val KEY_DEVICE_ID = "device_id"
+    const val KEY_CONFIRMED_DEVICE = "confirmed_device"
     const val KEY_IMAGE = "image"
     const val KEY_VERIFY_AFTER = "verify_after"
     const val KEY_AUXILIARY_DATA_FILE = "auxiliary_data_file"
@@ -91,21 +93,6 @@ class UsbImageWriteWorker(
     private val usbWriter = AndroidUsbHostBlockWriter(context = appContext)
 
     override suspend fun doWork(): Result {
-        val auxiliaryDataFile = inputData.getString(UsbWriteData.KEY_AUXILIARY_DATA_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
-        val fixedByteRangeFile = inputData.getString(UsbWriteData.KEY_FIXED_BYTE_RANGE_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
-        val bootPatchFile = inputData.getString(UsbWriteData.KEY_BOOT_PATCH_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
-        val bootPatchTemplateFile = inputData.getString(UsbWriteData.KEY_BOOT_PATCH_TEMPLATE_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
-        val returnPlanFile = inputData.getString(UsbWriteData.KEY_RETURN_PLAN_FILE)
-            ?.ifBlank { null }
-            ?.let(::File)
         var writeIntent: WriteIntent? = null
         var completedReceiptPersisted = false
         var finalImage: FinalImageDigest? = null
@@ -141,7 +128,7 @@ class UsbImageWriteWorker(
                 )
 
                 // One claim spans every phase so usb-storage cannot rebind to a half-written image.
-                usbWriter.withClaimedDevice(intent.deviceId) {
+                usbWriter.withClaimedDevice(intent.deviceId, intent.confirmedDevice) {
                     updateProgress(0, applicationContext.getString(R.string.opening_usb_image), "write_image")
                     usbWriter.writeImage(intent).collect { write ->
                         updateProgress(write.percent, "${write.message}: ${write.percent}%", "write_image")
@@ -234,11 +221,7 @@ class UsbImageWriteWorker(
             }
             Result.failure(workDataOf(UsbWriteData.KEY_MESSAGE to message))
         } finally {
-            auxiliaryDataFile?.delete()
-            fixedByteRangeFile?.delete()
-            bootPatchFile?.delete()
-            bootPatchTemplateFile?.delete()
-            returnPlanFile?.delete()
+            deletePersistedInput(inputData)
         }
     }
 
@@ -342,9 +325,28 @@ class UsbImageWriteWorker(
     }
 
     companion object {
+        private val PERSISTED_FILE_KEYS = listOf(
+            UsbWriteData.KEY_AUXILIARY_DATA_FILE,
+            UsbWriteData.KEY_FIXED_BYTE_RANGE_FILE,
+            UsbWriteData.KEY_BOOT_PATCH_FILE,
+            UsbWriteData.KEY_BOOT_PATCH_TEMPLATE_FILE,
+            UsbWriteData.KEY_RETURN_PLAN_FILE,
+        )
+
+        /**
+         * Deletes the plan files [inputData] wrote to app storage. They can hold generated
+         * secrets, so they are removed when the worker ends and when a request never runs.
+         */
+        fun deletePersistedInput(data: Data) {
+            PERSISTED_FILE_KEYS.forEach { key ->
+                data.getString(key)?.ifBlank { null }?.let { File(it).delete() }
+            }
+        }
+
         fun inputData(
             context: Context,
             deviceId: String,
+            confirmedDevice: DeviceFingerprint,
             image: VerifiedImage,
             verifyAfter: Boolean,
             auxiliaryData: AuxiliaryDataPlan?,
@@ -355,6 +357,7 @@ class UsbImageWriteWorker(
             tags: Map<String, String> = emptyMap(),
         ): Data = workDataOf(
             UsbWriteData.KEY_DEVICE_ID to deviceId,
+            UsbWriteData.KEY_CONFIRMED_DEVICE to workerJson.encodeToString(confirmedDevice),
             UsbWriteData.KEY_IMAGE to workerJson.encodeToString(image),
             UsbWriteData.KEY_VERIFY_AFTER to verifyAfter,
             UsbWriteData.KEY_AUXILIARY_DATA_FILE to auxiliaryData?.let { persistAuxiliaryData(context, it) },
@@ -506,7 +509,8 @@ private fun prepareReturnDeliveries(
         "manifest_id" to (intent.tags["manifest_id"] ?: ""),
         "package_id" to (intent.tags["package_id"] ?: ""),
         "device_id" to intent.deviceId,
-        "image_uri" to intent.image.uri,
+        // Redacted: the URI is a local path or document ID, and these variables reach remote templates.
+        "image_uri" to intent.image.uri.logSafe(),
         "image_sha256" to intent.image.sha256,
         "image_size_bytes" to intent.image.sizeBytes.toString(),
         "image_media_type" to intent.image.mediaType,
@@ -569,7 +573,6 @@ private fun buildDefaultWorkflowStartedBody(variables: Map<String, String>): Str
             put("manifest_id", variables["manifest_id"])
             variables["package_id"]?.takeIf { it.isNotBlank() }?.let { put("package_id", it) }
             put("device_id", variables["device_id"])
-            put("image_uri", variables["image_uri"])
             put("image_sha256", variables["image_sha256"])
         },
     )
@@ -584,7 +587,7 @@ internal suspend fun executePreparedReturnDeliveries(
         logger(
             "prepared_delivery event=${delivery.event} " +
                 "method=${delivery.method} required=${delivery.required} " +
-                "url=${delivery.url} bodySize=${delivery.body.length} mediaType=${delivery.mediaType}",
+                "url=${delivery.url.logSafe()} bodySize=${delivery.body.length} mediaType=${delivery.mediaType}",
         )
         val result = runCatching {
             post(delivery)
@@ -592,7 +595,7 @@ internal suspend fun executePreparedReturnDeliveries(
         val failure = result.exceptionOrNull()
         if (failure != null) {
             logger(
-                "delivery_failed event=${delivery.event} method=${delivery.method} url=${delivery.url}: ${failure.message}",
+                "delivery_failed event=${delivery.event} method=${delivery.method} url=${delivery.url.logSafe()}: ${failure.message}",
             )
             val shouldBlock = delivery.required
             runCatching {
@@ -608,7 +611,7 @@ internal suspend fun executePreparedReturnDeliveries(
         } else {
             logger(
                 "delivery_succeeded event=${delivery.event} " +
-                    "method=${delivery.method} url=${delivery.url}",
+                    "method=${delivery.method} url=${delivery.url.logSafe()}",
             )
         }
     }
@@ -839,7 +842,7 @@ internal fun buildReceiptPayload(
     put("source_id", intent.tags["source_id"])
     put("adaptation_status", intent.tags["adaptation_status"])
     put("device_id", intent.deviceId)
-    put("image_uri", intent.image.uri)
+    put("image_uri", intent.image.uri.logSafe())
     put("image_sha256", intent.image.sha256)
     put("image_size_bytes", intent.image.sizeBytes)
     put("image_media_type", intent.image.mediaType)
@@ -983,6 +986,9 @@ private fun Data.toWriteIntent(): WriteIntent {
     val returnPlan = getString(UsbWriteData.KEY_RETURN_PLAN_FILE)
         ?.ifBlank { null }
         ?.let { workerJson.decodeFromString<WriteReturnPlan>(File(it).readText()) }
+    val confirmedDevice = getString(UsbWriteData.KEY_CONFIRMED_DEVICE)
+        ?.ifBlank { null }
+        ?.let { workerJson.decodeFromString<DeviceFingerprint>(it) }
     val tags = getString(UsbWriteData.KEY_TAGS)
         ?.ifBlank { null }
         ?.let { workerJson.decodeFromString<Map<String, String>>(it) }
@@ -999,6 +1005,7 @@ private fun Data.toWriteIntent(): WriteIntent {
         bootPatchTemplate = bootPatchTemplate,
         returnPlan = returnPlan,
         tags = tags,
+        confirmedDevice = confirmedDevice,
     )
 }
 
