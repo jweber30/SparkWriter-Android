@@ -2,7 +2,6 @@ package net.metalstrapper.sparkwriter
 
 import android.content.Context
 import android.net.Uri
-import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
@@ -176,30 +175,12 @@ private fun Uri.isInside(directory: File): Boolean {
     return File(path).canonicalPath.startsWith(root)
 }
 
-suspend fun removeLocalImageSource(context: Context, image: VerifiedImage): Boolean = withContext(Dispatchers.IO) {
-    val uri = Uri.parse(image.provenance.ifBlank { image.uri })
-    when (uri.scheme) {
-        "file" -> uri.path?.let { File(it).delete() } ?: false
-        "content" -> context.deleteDocumentUri(uri)
-        else -> false
-    }
-}
-
 private fun Context.openImageInputStream(uri: Uri): InputStream? {
     return if (uri.scheme == "file") {
         uri.path?.let { FileInputStream(File(it)) }
     } else {
         contentResolver.openInputStream(uri)
     }
-}
-
-private fun Context.deleteDocumentUri(uri: Uri): Boolean {
-    runCatching {
-        if (DocumentsContract.isDocumentUri(this, uri) && DocumentsContract.deleteDocument(contentResolver, uri)) {
-            return true
-        }
-    }
-    return runCatching { contentResolver.delete(uri, null, null) > 0 }.getOrDefault(false)
 }
 
 private fun Context.displayNameFor(uri: Uri): String {
