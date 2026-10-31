@@ -11,6 +11,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.DeviceRef
 import net.metalstrapper.sparkwriter.core.PermissionResult
 import net.metalstrapper.sparkwriter.core.VerifiedImage
@@ -40,6 +41,7 @@ class VirtualUsbStickTest {
     private val usbManager = context.getSystemService(UsbManager::class.java)
     private val writer = AndroidUsbHostBlockWriter(context, usbManager)
     private lateinit var stick: DeviceRef
+    private lateinit var confirmed: DeviceFingerprint
 
     @Before
     fun findVirtualStick(): Unit = runBlocking {
@@ -47,6 +49,7 @@ class VirtualUsbStickTest {
         assumeTrue("No $VIRTUAL_STICK_NAME attached; see tools/emulator-test/README.md", found.size == 1)
         stick = found.single()
         grantPermission(stick.id)
+        confirmed = requireNotNull(writer.probe(stick.id).fingerprint) { "Probe returned no fingerprint" }
     }
 
     @Test
@@ -55,7 +58,7 @@ class VirtualUsbStickTest {
         val intent = writeIntent(image)
 
         val (written, verified) = UsbWriteGate.withExclusiveWrite {
-            writer.withClaimedDevice(stick.id) {
+            writer.withClaimedDevice(stick.id, confirmed) {
                 writer.writeImage(intent).toList() to writer.verifyImage(intent).toList()
             }
         }
@@ -72,7 +75,7 @@ class VirtualUsbStickTest {
         val other = testImage(seed = 3, sizeBytes = IMAGE_BYTES)
 
         UsbWriteGate.withExclusiveWrite {
-            writer.withClaimedDevice(stick.id) {
+            writer.withClaimedDevice(stick.id, confirmed) {
                 writer.writeImage(writeIntent(first)).toList()
                 try {
                     writer.verifyImage(writeIntent(other)).toList()
@@ -94,7 +97,7 @@ class VirtualUsbStickTest {
         val tooBig = testImage(seed = 4, sizeBytes = 4096).copy(sizeBytes = probed.device.sizeBytes + 512)
         try {
             UsbWriteGate.withExclusiveWrite {
-                writer.withClaimedDevice(stick.id) { writer.writeImage(writeIntent(tooBig)).toList() }
+                writer.withClaimedDevice(stick.id, confirmed) { writer.writeImage(writeIntent(tooBig)).toList() }
             }
             fail("Wrote an image larger than the stick")
         } catch (expected: WriteRefusedException) {
@@ -117,6 +120,7 @@ class VirtualUsbStickTest {
         deviceId = stick.id,
         confirmedDeviceId = stick.id,
         image = image,
+        confirmedDevice = confirmed,
     )
 
     private fun testImage(seed: Int, sizeBytes: Long): VerifiedImage {

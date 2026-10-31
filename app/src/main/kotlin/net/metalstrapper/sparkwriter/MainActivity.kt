@@ -139,7 +139,7 @@ class MainActivity : ComponentActivity() {
         val rawUri = intent?.dataString
         val draft = rawUri?.takeIf { intent.action == Intent.ACTION_VIEW }?.let(::parseDraftUri)
         // Draft values are config (addresses, keys, commands); keep them out of logcat.
-        Log.d("SparkWriter", "Received intent action=${intent?.action} data=${if (draft != null) "spark://draft?…" else rawUri}")
+        Log.d("SparkWriter", "Received intent action=${intent?.action} data=${if (draft != null) "spark://draft?…" else rawUri.logSafe()}")
         if (draft != null) {
             if (!restoring) {
                 Log.d("SparkWriter", "Received config draft for ${draft.manifestId} with ${draft.values.size} values")
@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
         }
         val manifestUrl = rawUri?.let { runCatching { runtime.parseSparkUri(it) }.getOrNull() }
         if (manifestUrl != null) {
-            Log.d("SparkWriter", "Parsed Spark manifest URL: $manifestUrl")
+            Log.d("SparkWriter", "Parsed Spark manifest URL: ${manifestUrl.logSafe()}")
             pendingManifestInstall.value = ManifestInstallRequest(manifestUrl, System.nanoTime())
             return
         }
@@ -162,10 +162,10 @@ class MainActivity : ComponentActivity() {
         if (imageUri != null && !isAcceptableExternalImageUri(imageUri.scheme, imageUri.authority, packageName)) {
             Log.w("SparkWriter", "Rejected external image URI with scheme=${imageUri.scheme}")
         } else if (imageUri != null) {
-            Log.d("SparkWriter", "Received local image URI: $imageUri")
+            Log.d("SparkWriter", "Received local image URI: ${imageUri.logSafe()}")
             pendingImageImport.value = PendingImageImport(imageUri, System.nanoTime())
         } else if (rawUri != null) {
-            Log.w("SparkWriter", "Ignored unrecognized URI: $rawUri")
+            Log.w("SparkWriter", "Ignored unrecognized URI: ${rawUri.logSafe()}")
         }
     }
 }
@@ -388,7 +388,7 @@ fun SparkWriterApp(
             imageImportProgress = null
         }.onFailure { error ->
             if (error is CancellationException) throw error
-            Log.e("SparkWriter", "ISO import failed for ${request.uri}", error)
+            Log.e("SparkWriter", "ISO import failed for ${request.uri.logSafe()}", error)
             status = context.getString(R.string.iso_import_failed, error.message ?: error::class.simpleName)
             imageImportProgress = null
         }
@@ -543,7 +543,7 @@ fun SparkWriterApp(
                 pending = pending,
             )
         }.onFailure { error ->
-            Log.e("SparkWriter", "Spark install failed for $installUrl", error)
+            Log.e("SparkWriter", "Spark install failed for ${installUrl.logSafe()}", error)
             handledManifestInstallNonce = request.nonce
             val message = error.message ?: error::class.simpleName.orEmpty()
             status = context.getString(R.string.install_failed, message)

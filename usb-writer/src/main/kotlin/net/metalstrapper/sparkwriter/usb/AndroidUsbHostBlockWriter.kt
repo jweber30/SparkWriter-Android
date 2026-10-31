@@ -20,6 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import net.metalstrapper.sparkwriter.core.BlockDeviceInfo
+import net.metalstrapper.sparkwriter.core.DeviceFingerprint
 import net.metalstrapper.sparkwriter.core.DeviceRef
 import net.metalstrapper.sparkwriter.core.DeviceType
 import net.metalstrapper.sparkwriter.core.PermissionResult
@@ -83,15 +84,27 @@ class AndroidUsbHostBlockWriter(
     /**
      * Claims the device's mass-storage interface once and holds it for every write, verify, and
      * patch phase run by [block], so the kernel's usb-storage driver cannot rebind and remount a
-     * half-written image between phases. Flushes the device write cache before releasing it.
-     * Must be called inside [UsbWriteGate.withExclusiveWrite].
+     * half-written image between phases. Before anything is written, the claimed device must
+     * match [confirmed], the identity probed when the user confirmed it. Flushes the device
+     * write cache before releasing it. Must be called inside [UsbWriteGate.withExclusiveWrite].
      */
-    suspend fun <T> withClaimedDevice(deviceId: String, block: suspend () -> T): T {
+    suspend fun <T> withClaimedDevice(deviceId: String, confirmed: DeviceFingerprint?, block: suspend () -> T): T {
         val scope = currentExclusiveWrite()
             ?: throw WriteRefusedException("USB device can only be claimed while holding the USB write gate")
         if (scope.claimed != null) throw WriteRefusedException("A USB device is already claimed for this write")
+        if (confirmed == null) throw WriteRefusedException("Write has no confirmed device identity")
         val device = findDevice(deviceId) ?: throw WriteRefusedException("USB device not found")
         val session = withContext(Dispatchers.IO) { UsbMassStorageSession.open(usbManager, device) }
+        try {
+            val capacity = withContext(Dispatchers.IO) {
+                session.testUnitReady()
+                session.readCapacity()
+            }
+            requireSameDevice(confirmed, device.fingerprint(capacity))
+        } catch (error: Throwable) {
+            session.close()
+            throw error
+        }
         scope.claimed = ClaimedDevice(deviceId, session)
         try {
             val result = block()
@@ -123,6 +136,7 @@ class AndroidUsbHostBlockWriter(
                 blockSize = capacity.blockSize,
                 blockCount = capacity.blockCount,
                 permissionGranted = true,
+                fingerprint = device.fingerprint(capacity),
             )
         }
         val claimed = currentExclusiveWrite()?.claimed?.takeIf { it.deviceId == deviceId }
@@ -710,6 +724,17 @@ private fun UsbDevice.massStorageInterface(): MassStorageInterface? {
     }
     return null
 }
+
+/** Requires USB permission: the serial number is only readable once it is granted. */
+private fun UsbDevice.fingerprint(capacity: UsbCapacity): DeviceFingerprint = DeviceFingerprint(
+    vendorId = vendorId,
+    productId = productId,
+    manufacturerName = manufacturerName?.ifBlank { null },
+    productName = productName?.ifBlank { null },
+    serialNumber = runCatching { serialNumber }.getOrNull()?.trim()?.ifBlank { null },
+    blockSize = capacity.blockSize,
+    blockCount = capacity.blockCount,
+)
 
 private fun UsbDevice.toDeviceRef(sizeBytes: Long): DeviceRef {
     val vendorText = vendorId.toString(16).padStart(4, '0')

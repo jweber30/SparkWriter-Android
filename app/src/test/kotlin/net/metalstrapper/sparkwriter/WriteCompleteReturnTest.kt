@@ -584,7 +584,7 @@ class WriteCompleteReturnTest {
         assertTrue(delivery.body.contains("\"manifest_id\":\"manifest-1\""))
         assertTrue(delivery.body.contains("\"package_id\":\"pkg-1\""))
         assertTrue(delivery.body.contains("\"device_id\":\"usb-1\""))
-        assertTrue(delivery.body.contains("\"image_uri\":\"content://image\""))
+        assertTrue("image_uri must not leave the device", !delivery.body.contains("image_uri"))
         assertTrue(delivery.body.contains("\"image_sha256\":\"${"c".repeat(64)}\""))
     }
 
