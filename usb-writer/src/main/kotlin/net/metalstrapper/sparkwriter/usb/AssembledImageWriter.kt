@@ -27,9 +27,11 @@ object AssembledImageWriter {
         outputFile.parentFile?.mkdirs()
         RandomAccessFile(outputFile, "rw").use { output ->
             output.setLength(0)
-            copyBaseImage(source, output, image.sizeBytes) { written ->
+            val approved = approvedImageStream(source)
+            copyBaseImage(approved, output, image.sizeBytes) { written ->
                 onProgress(AssembledImageProgress("Copying base image", written, image.sizeBytes))
             }
+            requireApprovedDigest(approved, image)
             output.setLength(image.sizeBytes)
 
             bootPatch?.let { plan ->

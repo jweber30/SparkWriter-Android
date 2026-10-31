@@ -2,7 +2,11 @@ package net.metalstrapper.sparkwriter.usb
 
 import net.metalstrapper.sparkwriter.core.BlockDeviceInfo
 import net.metalstrapper.sparkwriter.core.AuxiliaryDataPlan
+import net.metalstrapper.sparkwriter.core.VerifiedImage
 import net.metalstrapper.sparkwriter.core.WriteIntent
+import java.io.InputStream
+import java.security.DigestInputStream
+import java.security.MessageDigest
 
 class WriteRefusedException(message: String) : IllegalStateException(message)
 
@@ -39,5 +43,22 @@ internal fun validateAuxiliarySourceMatch(intent: WriteIntent, auxiliary: Auxili
             Unit
         }
         else -> throw WriteRefusedException("Unsupported auxiliary partition placement: ${auxiliary.placement}")
+    }
+}
+
+/**
+ * Hashes the image bytes a phase actually consumes. Every phase that reads the source image wraps
+ * its stream with this and calls [requireApprovedDigest] once it has read [VerifiedImage.sizeBytes],
+ * so content that changed after verification is refused rather than trusted.
+ */
+fun approvedImageStream(source: InputStream): DigestInputStream =
+    DigestInputStream(source, MessageDigest.getInstance("SHA-256"))
+
+fun requireApprovedDigest(stream: DigestInputStream, image: VerifiedImage) {
+    val actual = stream.messageDigest.digest().joinToString("") { "%02x".format(it) }
+    if (!actual.equals(image.sha256, ignoreCase = true)) {
+        throw WriteRefusedException(
+            "Image changed after it was verified: read sha256 $actual, approved ${image.sha256.lowercase()}",
+        )
     }
 }

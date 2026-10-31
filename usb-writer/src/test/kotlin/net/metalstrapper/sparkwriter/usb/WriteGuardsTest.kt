@@ -80,3 +80,30 @@ class WriteGuardsTest {
         validateAuxiliarySourceMatch(intent = intent, auxiliary = auxiliary)
     }
 }
+
+class ApprovedDigestTest {
+    private val bytes = "approved image bytes".toByteArray()
+    private val image = net.metalstrapper.sparkwriter.core.VerifiedImage(
+        uri = "file:///image.iso",
+        sha256 = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it) }.uppercase(),
+        sizeBytes = bytes.size.toLong(),
+        mediaType = "application/octet-stream",
+        provenance = "test",
+        displayName = "image.iso",
+    )
+
+    @org.junit.Test
+    fun acceptsTheApprovedBytesCaseInsensitively() {
+        val stream = approvedImageStream(java.io.ByteArrayInputStream(bytes))
+        stream.readBytes()
+        requireApprovedDigest(stream, image)
+    }
+
+    @org.junit.Test
+    fun refusesBytesThatChangedAfterApproval() {
+        val stream = approvedImageStream(java.io.ByteArrayInputStream("different image bytes".toByteArray()))
+        stream.readBytes()
+        org.junit.Assert.assertThrows(WriteRefusedException::class.java) { requireApprovedDigest(stream, image) }
+    }
+}
