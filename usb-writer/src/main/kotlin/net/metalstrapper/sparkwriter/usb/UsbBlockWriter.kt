@@ -17,4 +17,7 @@ interface UsbBlockWriter {
     fun writeAuxiliaryData(intent: WriteIntent): Flow<WriteProgress>
     fun writeFixedByteRanges(intent: WriteIntent): Flow<WriteProgress>
     fun verifyImage(intent: WriteIntent): Flow<VerifyProgress>
+
+    /** Verifies the finished device contents after every phase; the last emission carries the digest. */
+    fun verifyFinalImage(intent: WriteIntent): Flow<VerifyProgress>
 }

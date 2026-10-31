@@ -119,7 +119,7 @@
     <string name="continue_label">Continuar</string>
     <string name="generated_credentials">Credenciales generadas</string>
     <string name="usb_target">Destino USB</string>
-    <string name="verify_base_image_after_write">Verificar la imagen base después de escribir</string>
+    <string name="verify_usb_after_write">Verificar el USB terminado después de escribir</string>
     <string name="start_write">Iniciar escritura</string>
     <string name="saving_ellipsis">Guardando…</string>
     <string name="save_assembled_iso">Guardar ISO ensamblada</string>

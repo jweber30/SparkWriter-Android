@@ -39,6 +39,7 @@ import net.metalstrapper.sparkwriter.core.BootPatchTemplatePlan
 import net.metalstrapper.sparkwriter.core.BootPlaceholderPatchSpec
 import net.metalstrapper.sparkwriter.core.BootScriptPatchSpec
 import net.metalstrapper.sparkwriter.core.BootTextPatchSpec
+import net.metalstrapper.sparkwriter.core.FinalImageDigest
 import net.metalstrapper.sparkwriter.core.FixedByteRangePlan
 import net.metalstrapper.sparkwriter.core.FieldCondition
 import net.metalstrapper.sparkwriter.core.VerifiedImage
@@ -107,6 +108,7 @@ class UsbImageWriteWorker(
             ?.let(::File)
         var writeIntent: WriteIntent? = null
         var completedReceiptPersisted = false
+        var finalImage: FinalImageDigest? = null
         return try {
             UsbWriteGate.withExclusiveWrite {
                 ensureNotificationChannel()
@@ -145,18 +147,6 @@ class UsbImageWriteWorker(
                         updateProgress(write.percent, "${write.message}: ${write.percent}%", "write_image")
                     }
 
-                    if (intent.verifyAfter) {
-                        updateProgress(0, applicationContext.getString(R.string.starting_usb_verification), "verify_image")
-                        usbWriter.verifyImage(intent).collect { verify ->
-                            val percent = if (verify.totalBytes <= 0) {
-                                0
-                            } else {
-                                ((verify.bytesRead * 100) / verify.totalBytes).toInt().coerceIn(0, 100)
-                            }
-                            updateProgress(percent, "${verify.message}: $percent%", "verify_image")
-                        }
-                    }
-
                     if (intent.bootPatch != null) {
                         updateProgress(0, applicationContext.getString(R.string.preparing_boot_patch), "boot_patch")
                         usbWriter.writeBootPatch(intent).collect { patch ->
@@ -182,11 +172,32 @@ class UsbImageWriteWorker(
                             updateProgress(fixed.percent, "${fixed.message}: ${fixed.percent}%", "fixed_byte_ranges")
                         }
                     }
+
+                    // One readback after every phase covers the base image and all patches, so it
+                    // also catches a later phase overwriting earlier data.
+                    if (intent.verifyAfter) {
+                        updateProgress(0, applicationContext.getString(R.string.starting_usb_verification), "verify_final_image")
+                        usbWriter.verifyFinalImage(intent).collect { verify ->
+                            val percent = if (verify.totalBytes <= 0) {
+                                0
+                            } else {
+                                ((verify.bytesRead * 100) / verify.totalBytes).toInt().coerceIn(0, 100)
+                            }
+                            verify.finalImage?.let { finalImage = it }
+                            updateProgress(percent, "${verify.message}: $percent%", "verify_final_image")
+                        }
+                        val verified = finalImage ?: throw WriteRefusedException("Final USB verification returned no digest")
+                        Log.i(
+                            "SparkWriter",
+                            "Final USB image verified sha256=${verified.sha256} bytes=${verified.totalBytes} " +
+                                "extents=${verified.extents.joinToString(",") { "${it.offset}+${it.length}" }}",
+                        )
+                    }
                 }
 
                 updateProgress(100, applicationContext.getString(R.string.usb_write_complete), "complete")
                 showCompletionNotification(applicationContext.getString(R.string.usb_write_complete))
-                val receiptPayload = tryPersistReceipt(intent, WriteStatus.COMPLETED, null)
+                val receiptPayload = tryPersistReceipt(intent, WriteStatus.COMPLETED, null, finalImage)
                 completedReceiptPersisted = true
                 val completionMessage = runCatching {
                     deliverWriteCompleteReturns(intent, receiptPayload)
@@ -395,8 +406,9 @@ private suspend fun UsbImageWriteWorker.tryPersistReceipt(
     intent: WriteIntent,
     status: WriteStatus,
     errorMessage: String?,
+    finalImage: FinalImageDigest? = null,
 ): Map<String, String> {
-    return runCatching { persistReceipt(intent, status, errorMessage) }
+    return runCatching { persistReceipt(intent, status, errorMessage, finalImage) }
         .getOrDefault(emptyMap())
 }
 
@@ -404,10 +416,11 @@ private suspend fun UsbImageWriteWorker.persistReceipt(
     intent: WriteIntent,
     status: WriteStatus,
     errorMessage: String?,
+    finalImage: FinalImageDigest?,
 ): Map<String, String> {
     val completedAt = System.currentTimeMillis()
     val receiptId = UUID.randomUUID().toString()
-    val payloadObject = buildReceiptPayload(receiptId, intent, status, completedAt, errorMessage)
+    val payloadObject = buildReceiptPayload(receiptId, intent, status, completedAt, errorMessage, finalImage)
     val payload = payloadObject.toString()
     withContext(Dispatchers.IO) {
         SparkWriterDatabase.open(applicationContext).receipts().insert(
@@ -809,12 +822,13 @@ private fun String.replaceText(replacements: Map<String, String>): String =
 private val COMPACT_ARTIFACT_ID_REGEX = Regex("[A-Za-z0-9]{7}")
 private val SPARK_TEMPLATE_VARIABLE_REGEX = Regex("""\{\{\s*([^}]+?)\s*\}\}""")
 
-private fun buildReceiptPayload(
+internal fun buildReceiptPayload(
     id: String,
     intent: WriteIntent,
     status: WriteStatus,
     completedAtEpochMillis: Long,
     errorMessage: String?,
+    finalImage: FinalImageDigest? = null,
 ) = buildJsonObject {
     put("id", id)
     put("status", status.name)
@@ -830,6 +844,20 @@ private fun buildReceiptPayload(
     put("image_size_bytes", intent.image.sizeBytes)
     put("image_media_type", intent.image.mediaType)
     errorMessage?.let { put("error", it) }
+    // final_image_sha256 covers the bytes of final_image_extents, concatenated in disk order.
+    put("final_verification", if (finalImage != null) "usb_readback" else "not_performed")
+    finalImage?.let { digest ->
+        put("final_image_sha256", digest.sha256)
+        put("final_image_bytes", digest.totalBytes)
+        put("final_image_extents", buildJsonArray {
+            digest.extents.forEach { extent ->
+                add(buildJsonObject {
+                    put("offset", extent.offset)
+                    put("length", extent.length)
+                })
+            }
+        })
+    }
     intent.auxiliaryData?.let { auxiliary ->
         put("delivery_mode", "auxiliary_partition")
         put("auxiliary_label", auxiliary.label)

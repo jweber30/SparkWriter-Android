@@ -26,6 +26,7 @@ import net.metalstrapper.sparkwriter.core.PermissionResult
 import net.metalstrapper.sparkwriter.core.VerifyProgress
 import net.metalstrapper.sparkwriter.core.WriteIntent
 import net.metalstrapper.sparkwriter.core.WriteProgress
+import java.io.FileInputStream
 import java.io.InputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -92,6 +93,9 @@ class AndroidUsbHostBlockWriter(
         if (scope.claimed != null) throw WriteRefusedException("A USB device is already claimed for this write")
         val device = findDevice(deviceId) ?: throw WriteRefusedException("USB device not found")
         val session = withContext(Dispatchers.IO) { UsbMassStorageSession.open(usbManager, device) }
+        // Every byte-range write after the base image is logged so verifyFinalImage can rebuild
+        // the finished image as base + overlay.
+        session.overlay = WriteOverlay()
         scope.claimed = ClaimedDevice(deviceId, session)
         try {
             val result = block()
@@ -215,11 +219,13 @@ class AndroidUsbHostBlockWriter(
 
             val image = when (auxiliary.placement) {
                 "preallocated_in_base_image" -> {
-                    val existing = session.readByteRange(
-                        geometry.byteOffset,
-                        geometry.byteLength.toInt(),
-                        probed.blockSize,
-                    )
+                    val length = geometry.byteLength.toInt()
+                    // The partition lies inside the base image, so start from the approved source.
+                    val existing = if (geometry.byteOffset + length <= intent.image.sizeBytes) {
+                        withSourceRanges(intent, session, probed.blockSize) { readExpected -> readExpected(geometry.byteOffset, length) }
+                    } else {
+                        session.readByteRange(geometry.byteOffset, length, probed.blockSize)
+                    }
                     VFatImage.populateOrCreate(existing, auxiliary.copy(geometry = geometry))
                 }
                 else -> VFatImage.create(auxiliary.copy(geometry = geometry))
@@ -243,35 +249,39 @@ class AndroidUsbHostBlockWriter(
         validateRoundedImageFits(intent.image.sizeBytes, probed)
 
         claimedSession(intent.deviceId).let { session ->
-            session.testUnitReady()
-            val readImageBytes: (Long, Int) -> ByteArray = { offset, length ->
-                if (offset + length > intent.image.sizeBytes) {
-                    throw WriteRefusedException("Boot config candidate exceeds verified image size")
+            withSourceRanges(intent, session, probed.blockSize) { readExpected ->
+                session.testUnitReady()
+                // Patches are built from the approved source, not device readback, so the final
+                // verification compares the device against content derived only from approved bytes.
+                val readImageBytes: (Long, Int) -> ByteArray = { offset, length ->
+                    if (offset + length > intent.image.sizeBytes) {
+                        throw WriteRefusedException("Boot config candidate exceeds verified image size")
+                    }
+                    readExpected(offset, length)
                 }
-                session.readByteRange(offset, length, probed.blockSize)
-            }
-            val patches = intent.bootPatchTemplate?.let { template ->
-                runCatching { IsoBootPatchWriter.materializeTemplatePatches(template, readImageBytes) }
-                    .getOrElse { IsoBootPatchWriter.buildPatches(plan, readImageBytes) }
-            } ?: IsoBootPatchWriter.buildPatches(plan, readImageBytes)
-            if (patches.isEmpty()) {
-                throw WriteRefusedException("Boot patch plan produced no patches to apply")
-            }
-            val total = patches.sumOf { it.bytes.size }.toLong()
-            var written = 0L
-            patches.forEachIndexed { index, patch ->
-                if (patch.offset + patch.bytes.size > intent.image.sizeBytes) {
-                    throw WriteRefusedException("Boot config patch exceeds verified image size")
+                val patches = intent.bootPatchTemplate?.let { template ->
+                    runCatching { IsoBootPatchWriter.materializeTemplatePatches(template, readImageBytes) }
+                        .getOrElse { IsoBootPatchWriter.buildPatches(plan, readImageBytes) }
+                } ?: IsoBootPatchWriter.buildPatches(plan, readImageBytes)
+                if (patches.isEmpty()) {
+                    throw WriteRefusedException("Boot patch plan produced no patches to apply")
                 }
-                emit(WriteProgress(written, total, "Writing boot config patch: ${patch.description} (${index + 1}/${patches.size})"))
-                session.writeByteRangeReadModifyWrite(patch.offset, patch.bytes, probed.blockSize)
-                val actual = session.readByteRange(patch.offset, patch.bytes.size, probed.blockSize)
-                if (!patch.bytes.contentEquals(actual)) {
-                    throw WriteRefusedException("Boot config patch readback verification failed for ${patch.description}")
+                val total = patches.sumOf { it.bytes.size }.toLong()
+                var written = 0L
+                patches.forEachIndexed { index, patch ->
+                    if (patch.offset + patch.bytes.size > intent.image.sizeBytes) {
+                        throw WriteRefusedException("Boot config patch exceeds verified image size")
+                    }
+                    emit(WriteProgress(written, total, "Writing boot config patch: ${patch.description} (${index + 1}/${patches.size})"))
+                    session.writeByteRangeReadModifyWrite(patch.offset, patch.bytes, probed.blockSize)
+                    val actual = session.readByteRange(patch.offset, patch.bytes.size, probed.blockSize)
+                    if (!patch.bytes.contentEquals(actual)) {
+                        throw WriteRefusedException("Boot config patch readback verification failed for ${patch.description}")
+                    }
+                    written += patch.bytes.size
                 }
-                written += patch.bytes.size
+                emit(WriteProgress(total, total, "Boot config patch verified"))
             }
-            emit(WriteProgress(total, total, "Boot config patch verified"))
         }
     }.flowOn(Dispatchers.IO)
 
@@ -359,6 +369,85 @@ class AndroidUsbHostBlockWriter(
             }
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Reads back everything this write put on the device (base image plus every logged patch)
+     * in one pass and compares it with the expected finished image. Runs last, after every
+     * phase, so it also catches a later phase clobbering earlier data (for example a
+     * fake-capacity stick wrapping the backup GPT onto the start of the image).
+     */
+    override fun verifyFinalImage(intent: WriteIntent): Flow<VerifyProgress> = flow {
+        val probed = probe(intent.deviceId)
+        validateWriteIntent(intent, probed)
+        validateRoundedImageFits(intent.image.sizeBytes, probed)
+
+        val session = claimedSession(intent.deviceId)
+        val overlay = session.overlay
+            ?: throw WriteRefusedException("Final verification requires a claimed write session")
+        // Flush first so the readback reflects what the device committed, not just what it accepted.
+        session.synchronizeCache()
+        session.testUnitReady()
+        val blockSize = probed.blockSize
+        val transferBytes = min(MAX_BLOCKS_PER_TRANSFER, Int.MAX_VALUE / blockSize) * blockSize
+        val source = context.contentResolver.openInputStream(Uri.parse(intent.image.uri))
+            ?: throw WriteRefusedException("Image URI could not be opened")
+        val result = source.use {
+            FinalImageVerifier.verify(
+                source = it,
+                image = intent.image,
+                blockSize = blockSize,
+                overlay = overlay,
+                transferBytes = transferBytes,
+                readDevice = { offset, buffer, length ->
+                    session.readBlocks(offset / blockSize, buffer, length, length / blockSize)
+                },
+                onProgress = { read, total -> emit(VerifyProgress(read, total, "Verifying finished USB image")) },
+            )
+        }
+        emit(
+            VerifyProgress(
+                bytesRead = result.totalBytes,
+                totalBytes = result.totalBytes,
+                message = "Finished USB image verified",
+                completed = true,
+                verified = true,
+                finalImage = result,
+            ),
+        )
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Gives [block] random access to what the device should currently hold inside the base image:
+     * the approved source (the staged copy) with every write logged so far by [session] applied.
+     */
+    private inline fun <T> withSourceRanges(
+        intent: WriteIntent,
+        session: UsbMassStorageSession,
+        blockSize: Int,
+        block: (readExpected: (Long, Int) -> ByteArray) -> T,
+    ): T {
+        val baseEnd = ((intent.image.sizeBytes + blockSize - 1) / blockSize) * blockSize
+        val descriptor = context.contentResolver.openFileDescriptor(Uri.parse(intent.image.uri), "r")
+            ?: throw WriteRefusedException("Image URI could not be opened")
+        return descriptor.use {
+            FileInputStream(it.fileDescriptor).channel.use { channel ->
+                block { offset, length ->
+                    if (offset < 0 || length < 0 || offset + length > intent.image.sizeBytes) {
+                        throw WriteRefusedException("Source read is outside the verified image")
+                    }
+                    val bytes = ByteArray(length)
+                    var read = 0
+                    while (read < length) {
+                        val count = channel.read(ByteBuffer.wrap(bytes, read, length - read), offset + read)
+                        if (count < 0) throw WriteRefusedException("Image ended before requested byte range")
+                        read += count
+                    }
+                    session.overlay?.applyTo(offset, bytes, length, baseEnd)
+                    bytes
+                }
+            }
+        }
+    }
 
     private suspend fun claimedSession(deviceId: String): UsbMassStorageSession {
         val claimed = currentExclusiveWrite()?.claimed
@@ -453,6 +542,9 @@ private class UsbMassStorageSession private constructor(
     private val bulkOut: UsbEndpoint,
 ) : AutoCloseable {
     private val tag = AtomicInteger(1)
+
+    /** Log of byte-range writes for final verification; null outside a claimed write. */
+    var overlay: WriteOverlay? = null
 
     fun testUnitReady() {
         repeat(5) { attempt ->
@@ -559,6 +651,11 @@ private class UsbMassStorageSession private constructor(
     }
 
     fun writeByteRange(offset: Long, data: ByteArray, blockSize: Int) {
+        overlay?.record(offset, data)
+        writeByteRangeUnrecorded(offset, data, blockSize)
+    }
+
+    private fun writeByteRangeUnrecorded(offset: Long, data: ByteArray, blockSize: Int) {
         if (offset % blockSize != 0L || data.size % blockSize != 0) {
             throw WriteRefusedException("USB byte-range writes must be block aligned")
         }
@@ -580,7 +677,8 @@ private class UsbMassStorageSession private constructor(
         val transferBytes = roundUpToBlock(prefix + data.size, blockSize)
         val buffer = readByteRange(alignedOffset, transferBytes, blockSize)
         data.copyInto(buffer, prefix)
-        writeByteRange(alignedOffset, buffer, blockSize)
+        overlay?.recordReadModifyWrite(alignedOffset, buffer, offset, data)
+        writeByteRangeUnrecorded(alignedOffset, buffer, blockSize)
     }
 
     override fun close() {

@@ -637,4 +637,25 @@ data class VerifyProgress(
     val message: String,
     val completed: Boolean = false,
     val verified: Boolean = false,
+    /** Set on the completing emission of a final-image verification. */
+    val finalImage: FinalImageDigest? = null,
+)
+
+/** A contiguous byte range on the target device. */
+@Serializable
+data class ByteExtent(
+    val offset: Long,
+    val length: Long,
+)
+
+/**
+ * Digest of everything SparkWriter wrote to the device: the block-padded base image plus every
+ * later patch, as merged [extents] in disk order. [sha256] covers the concatenated bytes of those
+ * extents, so gaps that were never written (and still hold old data) are excluded.
+ */
+@Serializable
+data class FinalImageDigest(
+    val sha256: String,
+    val totalBytes: Long,
+    val extents: List<ByteExtent>,
 )

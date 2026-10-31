@@ -87,7 +87,7 @@
     <string name="back">رجوع</string>
     <string name="start_write">بدء الكتابة</string>
     <string name="usb_target">هدف USB</string>
-    <string name="verify_base_image_after_write">التحقق من الصورة الأساسية بعد الكتابة</string>
+    <string name="verify_usb_after_write">التحقق من USB المكتمل بعد الكتابة</string>
     <string name="pick_iso">اختيار ISO</string>
     <string name="open_download">فتح التنزيل</string>
     <string name="download_then_pick_iso">نزّل البيان، ثم اختر ملف ISO المكتمل.</string>

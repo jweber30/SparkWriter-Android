@@ -115,7 +115,7 @@ internal fun WorkflowPane(
     var devicePermissionById by remember { mutableStateOf(emptyMap<String, Boolean>()) }
     var selectedDeviceId by remember { mutableStateOf<String?>(null) }
     var confirmedDeviceId by rememberSaveable { mutableStateOf<String?>(null) }
-    var verifyBaseImage by rememberSaveable { mutableStateOf(true) }
+    var verifyFinishedUsb by rememberSaveable { mutableStateOf(true) }
     var writing by remember { mutableStateOf(false) }
     var savingAssembledImage by remember { mutableStateOf(false) }
     var pendingAssembledImageSave by remember { mutableStateOf<PendingAssembledImageSave?>(null) }
@@ -842,11 +842,11 @@ internal fun WorkflowPane(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Checkbox(
-                            checked = verifyBaseImage,
-                            onCheckedChange = { verifyBaseImage = it },
+                            checked = verifyFinishedUsb,
+                            onCheckedChange = { verifyFinishedUsb = it },
                             enabled = !writeActive,
                         )
-                        Text(stringResource(R.string.verify_base_image_after_write), modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.verify_usb_after_write), modifier = Modifier.weight(1f))
                     }
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -915,7 +915,7 @@ internal fun WorkflowPane(
                                             deviceId = deviceId,
                                             confirmedDeviceId = deviceId,
                                             image = image,
-                                            verifyAfter = verifyBaseImage,
+                                            verifyAfter = verifyFinishedUsb,
                                             auxiliaryData = auxiliaryData,
                                             fixedByteRanges = fixedByteRanges,
                                             bootPatch = preparation.bootPatchPlan,
@@ -928,7 +928,7 @@ internal fun WorkflowPane(
                                             context = context,
                                             deviceId = deviceId,
                                             image = image,
-                                            verifyAfter = verifyBaseImage,
+                                            verifyAfter = verifyFinishedUsb,
                                             auxiliaryData = auxiliaryData,
                                             fixedByteRanges = fixedByteRanges,
                                             bootPatch = preparation.bootPatchPlan,
