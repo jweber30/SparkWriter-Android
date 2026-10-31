@@ -10,6 +10,24 @@
   ],
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "languageTag": { "type": "string", "pattern": "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$" },
+    "displayText": {
+      "description": "Text shown to the user: a plain string in metadata.language, or a map of language tag to text. A map may also name a SparkWriter shared string with ref, which the app translates.",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "minProperties": 1,
+          "properties": {
+            "ref": { "enum": ["user.name", "user.username", "user.email", "user.ssh_public_keys", "network.suffix", "network.wifi.ssid", "apt.proxy", "locale.timezone", "locale.keyboard", "hostname", "fqdn", "country", "language", "network_card", "ip_address", "gateway", "dns_servers", "vlan_id", "filesystem", "install_disk", "root_password", "admin_password", "identity", "network", "storage", "access", "packages", "first_boot", "none", "custom", "reboot", "power_off"] }
+          },
+          "patternProperties": {
+            "^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "relativeReference": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\./)(?!.*\\.\\.\\/)[^\\s]+$" },
     "workflowManifest": {
       "type": "object",
@@ -186,7 +204,8 @@
         "publisher": { "type": "string" },
         "description": { "type": "string" },
         "homepage": { "type": "string", "format": "uri" },
-        "manifest_root_sha256": { "$ref": "#/$defs/sha256" }
+        "manifest_root_sha256": { "$ref": "#/$defs/sha256" },
+        "language": { "$ref": "#/$defs/languageTag", "description": "Language of the plain-string display text. Defaults to en." }
       },
       "additionalProperties": false
     },
@@ -555,7 +574,7 @@
         "algorithm": { "type": "string", "enum": ["sha512_crypt", "sha512-crypt", "sha512crypt"] },
         "executable": { "type": "boolean" },
         "user_secret": { "type": "boolean", "default": false },
-        "user_secret_label": { "type": "string" },
+        "user_secret_label": { "$ref": "#/$defs/displayText" },
         "when": { "$ref": "#/$defs/fieldCondition" }
       },
       "additionalProperties": false
@@ -601,8 +620,8 @@
       "required": ["id", "title", "fields"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "title": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
+        "title": { "$ref": "#/$defs/displayText", "minLength": 1 },
+        "description": { "$ref": "#/$defs/displayText" },
         "fields": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
@@ -620,12 +639,12 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "key": { "type": "string", "minLength": 1 },
-        "label": { "type": "string", "minLength": 1 },
+        "label": { "$ref": "#/$defs/displayText", "minLength": 1 },
         "type": { "type": "string", "enum": ["text", "password", "select", "multiline", "array", "info"] },
         "default": { "type": ["string", "boolean", "number", "null", "array"] },
         "required": { "type": "boolean" },
-        "description": { "type": "string" },
-        "placeholder": { "type": "string" },
+        "description": { "$ref": "#/$defs/displayText" },
+        "placeholder": { "$ref": "#/$defs/displayText" },
         "options": {
           "type": "array",
           "items": {
@@ -636,7 +655,7 @@
                 "required": ["value"],
                 "properties": {
                   "value": { "type": "string" },
-                  "label": { "type": "string" },
+                  "label": { "$ref": "#/$defs/displayText" },
                   "default": { "type": "boolean" },
                   "placeholder": { "type": "boolean" }
                 },
@@ -682,8 +701,8 @@
       "required": ["id", "label", "fetch", "field_bindings"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "label": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
+        "label": { "$ref": "#/$defs/displayText", "minLength": 1 },
+        "description": { "$ref": "#/$defs/displayText" },
         "fetch": { "$ref": "#/$defs/configFetch" },
         "field_bindings": {
           "type": "object",
@@ -704,8 +723,8 @@
       "required": ["id", "label", "fields"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
-        "label": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
+        "label": { "$ref": "#/$defs/displayText", "minLength": 1 },
+        "description": { "$ref": "#/$defs/displayText" },
         "fields": {
           "type": "object",
           "additionalProperties": { "type": ["string", "number", "boolean", "null"] },

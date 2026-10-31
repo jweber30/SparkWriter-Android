@@ -6,6 +6,7 @@ metadata:
   version: "0.1.0"
   author: MetalStrapper
   description: Patch a Debian netinst ISO to boot with an appended preseed.cfg.
+  language: en
 
 image: debian-13.5.0-amd64-netinst
 
@@ -29,7 +30,8 @@ actions:
 
 config_fields:
   - id: hostname
-    label: Hostname
+    label:
+      ref: hostname
     type: text
     default: debian-spark
     required: true
@@ -104,7 +106,10 @@ config_fields:
     storage:
       persist: "true"
   - id: package_include
-    label: Extra Packages
+    label:
+      en: Extra Packages
+      es: Paquetes adicionales
+      fr: Paquets supplémentaires
     type: text
     default: curl ca-certificates openssh-server
     advanced: true
@@ -118,7 +123,8 @@ config_fields:
 wizard:
   pages:
     - id: identity
-      title: Identity
+      title:
+        ref: identity
       fields:
         - hostname
         - domain

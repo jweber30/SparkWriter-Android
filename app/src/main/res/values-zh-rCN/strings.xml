@@ -205,4 +205,39 @@
     <string name="return_required_write_ready">只有此回调成功后，写入才会开始。</string>
     <string name="saving_ellipsis">正在保存…</string>
     <string name="view_artifact">查看 %1$s</string>
+    <!-- Language of these strings; used to match sparkplug translations. -->
+    <string name="ui_language_tag">zh-CN</string>
+    <!-- Shared strings sparkplugs can reuse by id (see core SharedText). -->
+    <string name="shared_text_user_name">全名</string>
+    <string name="shared_text_user_username">用户名</string>
+    <string name="shared_text_user_email">电子邮件</string>
+    <string name="shared_text_user_ssh_public_keys">SSH 公钥</string>
+    <string name="shared_text_network_suffix">域名</string>
+    <string name="shared_text_network_wifi_ssid">Wi-Fi 网络名称</string>
+    <string name="shared_text_apt_proxy">APT 代理</string>
+    <string name="shared_text_locale_timezone">时区</string>
+    <string name="shared_text_locale_keyboard">键盘布局</string>
+    <string name="shared_text_hostname">主机名</string>
+    <string name="shared_text_fqdn">完全限定域名</string>
+    <string name="shared_text_country">国家/地区</string>
+    <string name="shared_text_language">语言</string>
+    <string name="shared_text_network_card">网卡</string>
+    <string name="shared_text_ip_address">IP 地址</string>
+    <string name="shared_text_gateway">网关</string>
+    <string name="shared_text_dns_servers">DNS 服务器</string>
+    <string name="shared_text_vlan_id">VLAN ID</string>
+    <string name="shared_text_filesystem">文件系统</string>
+    <string name="shared_text_install_disk">安装磁盘</string>
+    <string name="shared_text_root_password">root 密码</string>
+    <string name="shared_text_admin_password">管理员密码</string>
+    <string name="shared_text_identity">身份</string>
+    <string name="shared_text_network">网络</string>
+    <string name="shared_text_storage">存储</string>
+    <string name="shared_text_access">访问</string>
+    <string name="shared_text_packages">软件包</string>
+    <string name="shared_text_first_boot">首次启动</string>
+    <string name="shared_text_none">无</string>
+    <string name="shared_text_custom">自定义</string>
+    <string name="shared_text_reboot">重启</string>
+    <string name="shared_text_power_off">关机</string>
 </resources>

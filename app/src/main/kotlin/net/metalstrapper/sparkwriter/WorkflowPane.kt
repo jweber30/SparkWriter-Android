@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -73,6 +74,7 @@ import net.metalstrapper.sparkwriter.core.PermissionResult
 import net.metalstrapper.sparkwriter.core.SparkManifest
 import net.metalstrapper.sparkwriter.core.VerifiedImage
 import net.metalstrapper.sparkwriter.core.WriteIntent
+import net.metalstrapper.sparkwriter.core.localized
 import net.metalstrapper.sparkwriter.storage.IsoIndexStore
 import net.metalstrapper.sparkwriter.storage.ProfileStore
 import net.metalstrapper.sparkwriter.usb.UsbBlockWriter
@@ -81,7 +83,7 @@ import java.util.Locale
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WorkflowPane(
-    manifest: SparkManifest,
+    sourceManifest: SparkManifest,
     importedImage: VerifiedImage?,
     generatedSecrets: Map<String, String>,
     onGeneratedSecrets: (Map<String, String>) -> Unit,
@@ -99,6 +101,11 @@ internal fun WorkflowPane(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    // Same sparkplug with its display text in the user's language.
+    val manifest = remember(sourceManifest, configuration) {
+        sourceManifest.localized(context.sparkPlugLocalizer())
+    }
     val clipboard = LocalClipboard.current
     val profileStore = remember(context) { ProfileStore(context.applicationContext) }
     val values = remember(manifest.metadata.id) { mutableStateMapOf<String, String>() }

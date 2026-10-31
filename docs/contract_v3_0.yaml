@@ -11,6 +11,57 @@ $defs:
   sha256:
     type: string
     pattern: ^[a-f0-9]{64}$
+  languageTag:
+    type: string
+    pattern: ^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$
+  displayText:
+    description: 'Text shown to the user: a plain string in metadata.language, or
+      a map of language tag to text. A map may also name a SparkWriter shared string
+      with ref, which the app translates.'
+    oneOf:
+    - type: string
+    - type: object
+      minProperties: 1
+      properties:
+        ref:
+          enum:
+          - user.name
+          - user.username
+          - user.email
+          - user.ssh_public_keys
+          - network.suffix
+          - network.wifi.ssid
+          - apt.proxy
+          - locale.timezone
+          - locale.keyboard
+          - hostname
+          - fqdn
+          - country
+          - language
+          - network_card
+          - ip_address
+          - gateway
+          - dns_servers
+          - vlan_id
+          - filesystem
+          - install_disk
+          - root_password
+          - admin_password
+          - identity
+          - network
+          - storage
+          - access
+          - packages
+          - first_boot
+          - none
+          - custom
+          - reboot
+          - power_off
+      patternProperties:
+        ^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$:
+          type: string
+          minLength: 1
+      additionalProperties: false
   relativeReference:
     type: string
     pattern: ^(?!/)(?!.*\.\./)(?!.*\.\.\/)[^\s]+$
@@ -219,6 +270,9 @@ $defs:
         format: uri
       manifest_root_sha256:
         $ref: '#/$defs/sha256'
+      language:
+        $ref: '#/$defs/languageTag'
+        description: Language of the plain-string display text. Defaults to en.
     additionalProperties: false
   source:
     type: object
@@ -743,7 +797,7 @@ $defs:
         type: boolean
         default: false
       user_secret_label:
-        type: string
+        $ref: '#/$defs/displayText'
       when:
         $ref: '#/$defs/fieldCondition'
     additionalProperties: false
@@ -827,10 +881,10 @@ $defs:
         type: string
         minLength: 1
       title:
-        type: string
+        $ref: '#/$defs/displayText'
         minLength: 1
       description:
-        type: string
+        $ref: '#/$defs/displayText'
       fields:
         type: array
         items:
@@ -853,7 +907,7 @@ $defs:
         type: string
         minLength: 1
       label:
-        type: string
+        $ref: '#/$defs/displayText'
         minLength: 1
       type:
         type: string
@@ -874,9 +928,9 @@ $defs:
       required:
         type: boolean
       description:
-        type: string
+        $ref: '#/$defs/displayText'
       placeholder:
-        type: string
+        $ref: '#/$defs/displayText'
       options:
         type: array
         items:
@@ -889,7 +943,7 @@ $defs:
               value:
                 type: string
               label:
-                type: string
+                $ref: '#/$defs/displayText'
               default:
                 type: boolean
               placeholder:
@@ -953,10 +1007,10 @@ $defs:
         type: string
         minLength: 1
       label:
-        type: string
+        $ref: '#/$defs/displayText'
         minLength: 1
       description:
-        type: string
+        $ref: '#/$defs/displayText'
       fetch:
         $ref: '#/$defs/configFetch'
       field_bindings:
@@ -985,10 +1039,10 @@ $defs:
         type: string
         minLength: 1
       label:
-        type: string
+        $ref: '#/$defs/displayText'
         minLength: 1
       description:
-        type: string
+        $ref: '#/$defs/displayText'
       fields:
         type: object
         additionalProperties:

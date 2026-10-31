@@ -205,4 +205,39 @@
     <string name="field_length_counter">%1$d / %2$d자</string>
     <string name="field_too_long">너무 깁니다: 최대 %1$d자입니다</string>
     <string name="field_bad_format">형식이 올바르지 않습니다. 아래 예시를 참고하세요.</string>
+    <!-- Language of these strings; used to match sparkplug translations. -->
+    <string name="ui_language_tag">ko</string>
+    <!-- Shared strings sparkplugs can reuse by id (see core SharedText). -->
+    <string name="shared_text_user_name">전체 이름</string>
+    <string name="shared_text_user_username">사용자 이름</string>
+    <string name="shared_text_user_email">이메일</string>
+    <string name="shared_text_user_ssh_public_keys">SSH 공개 키</string>
+    <string name="shared_text_network_suffix">도메인</string>
+    <string name="shared_text_network_wifi_ssid">Wi-Fi 네트워크 이름</string>
+    <string name="shared_text_apt_proxy">APT 프록시</string>
+    <string name="shared_text_locale_timezone">시간대</string>
+    <string name="shared_text_locale_keyboard">키보드 레이아웃</string>
+    <string name="shared_text_hostname">호스트 이름</string>
+    <string name="shared_text_fqdn">정규화된 도메인 이름</string>
+    <string name="shared_text_country">국가</string>
+    <string name="shared_text_language">언어</string>
+    <string name="shared_text_network_card">네트워크 카드</string>
+    <string name="shared_text_ip_address">IP 주소</string>
+    <string name="shared_text_gateway">게이트웨이</string>
+    <string name="shared_text_dns_servers">DNS 서버</string>
+    <string name="shared_text_vlan_id">VLAN ID</string>
+    <string name="shared_text_filesystem">파일 시스템</string>
+    <string name="shared_text_install_disk">설치 디스크</string>
+    <string name="shared_text_root_password">root 비밀번호</string>
+    <string name="shared_text_admin_password">관리자 비밀번호</string>
+    <string name="shared_text_identity">식별 정보</string>
+    <string name="shared_text_network">네트워크</string>
+    <string name="shared_text_storage">스토리지</string>
+    <string name="shared_text_access">액세스</string>
+    <string name="shared_text_packages">패키지</string>
+    <string name="shared_text_first_boot">첫 부팅</string>
+    <string name="shared_text_none">없음</string>
+    <string name="shared_text_custom">사용자 지정</string>
+    <string name="shared_text_reboot">재부팅</string>
+    <string name="shared_text_power_off">전원 끄기</string>
 </resources>

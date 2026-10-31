@@ -84,6 +84,8 @@ data class ManifestMetadata(
     val description: String? = null,
     val homepage: String? = null,
     val manifestRootSha256: String? = null,
+    /** Language of the sparkplug's plain-string display text (BCP 47). */
+    val language: String = "en",
 )
 
 @Serializable
@@ -92,6 +94,8 @@ data class ConfigOption(
     val label: String,
     val default: Boolean = false,
     val placeholder: Boolean = false,
+    /** Translations for this object's display text, keyed by sparkplug key (such as "label"). */
+    val localizedText: Map<String, LocalizedText> = emptyMap(),
 )
 
 @Serializable
@@ -119,6 +123,8 @@ data class FormPrefillButton(
     val fieldBindings: Map<String, String> = emptyMap(),
     val immutableFields: List<String> = emptyList(),
     val whenCondition: FieldCondition? = null,
+    /** Translations for this object's display text, keyed by sparkplug key (such as "label"). */
+    val localizedText: Map<String, LocalizedText> = emptyMap(),
 )
 
 @Serializable
@@ -128,6 +134,8 @@ data class HostProfile(
     val description: String? = null,
     val fields: Map<String, String> = emptyMap(),
     val immutableFields: List<String> = emptyList(),
+    /** Translations for this object's display text, keyed by sparkplug key (such as "label"). */
+    val localizedText: Map<String, LocalizedText> = emptyMap(),
 )
 
 @Serializable
@@ -159,6 +167,8 @@ data class ConfigField(
     val bindings: List<ConfigBinding> = emptyList(),
     val fetch: ConfigFetchSpec? = null,
     val whenCondition: FieldCondition? = null,
+    /** Translations for this object's display text, keyed by sparkplug key (such as "label"). */
+    val localizedText: Map<String, LocalizedText> = emptyMap(),
 )
 
 @Serializable
@@ -167,6 +177,8 @@ data class WizardPage(
     val title: String,
     val description: String? = null,
     val fields: List<String>,
+    /** Translations for this object's display text, keyed by sparkplug key (such as "label"). */
+    val localizedText: Map<String, LocalizedText> = emptyMap(),
 )
 
 @Serializable
@@ -386,6 +398,8 @@ data class WorkflowAction(
     val userSecret: Boolean = false,
     val userSecretLabel: String? = null,
     val whenCondition: FieldCondition? = null,
+    /** Translations for this object's display text, keyed by sparkplug key (such as "label"). */
+    val localizedText: Map<String, LocalizedText> = emptyMap(),
 )
 
 @Serializable

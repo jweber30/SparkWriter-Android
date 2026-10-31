@@ -37,6 +37,8 @@ import net.metalstrapper.sparkwriter.core.HostProfile
 import net.metalstrapper.sparkwriter.core.HostEventSubscription
 import net.metalstrapper.sparkwriter.core.InlineText
 import net.metalstrapper.sparkwriter.core.InstallerSpec
+import net.metalstrapper.sparkwriter.core.LANGUAGE_TAG_PATTERN
+import net.metalstrapper.sparkwriter.core.LocalizedText
 import net.metalstrapper.sparkwriter.core.ManifestMetadata
 import net.metalstrapper.sparkwriter.core.MailroomCompactArtifactSpec
 import net.metalstrapper.sparkwriter.core.MailroomSpec
@@ -47,6 +49,7 @@ import net.metalstrapper.sparkwriter.core.PackageFileRef
 import net.metalstrapper.sparkwriter.core.PartitionGeometry
 import net.metalstrapper.sparkwriter.core.PlaceholderSpec
 import net.metalstrapper.sparkwriter.core.ReturnDeliverySpec
+import net.metalstrapper.sparkwriter.core.SharedText
 import net.metalstrapper.sparkwriter.core.Source
 import net.metalstrapper.sparkwriter.core.SourceAdaptation
 import net.metalstrapper.sparkwriter.core.SparkPackageRoot
@@ -1059,6 +1062,11 @@ private fun JsonObject.toMetadata(): ManifestMetadata {
         author = string("author") ?: string("publisher"),
         description = string("description"),
         homepage = string("homepage"),
+        language = string("language")?.also { language ->
+            if (!LANGUAGE_TAG_PATTERN.matches(language)) {
+                throw ManifestValidationException("metadata.language must be a language tag such as en or pt-BR")
+            }
+        } ?: "en",
     )
 }
 
@@ -1217,28 +1225,32 @@ private fun JsonObject.toDeliveryFile(): DeliveryFileSpec = DeliveryFileSpec(
     optional = this["optional"]?.jsonPrimitive?.booleanOrNull ?: false,
 )
 
-private fun JsonObject.toWorkflowAction(): WorkflowAction = WorkflowAction(
-    id = string("id") ?: "",
-    type = string("type") ?: "",
-    template = string("template"),
-    outputVar = string("output_var"),
-    artifactId = string("artifact_id"),
-    logicalName = string("logical_name"),
-    mediaType = string("media_type"),
-    contentVar = string("content_var"),
-    inputVar = string("input_var"),
-    algorithm = string("algorithm"),
-    executable = this["executable"]?.jsonPrimitive?.booleanOrNull ?: false,
-    userSecret = this["user_secret"]?.jsonPrimitive?.booleanOrNull ?: false,
-    userSecretLabel = string("user_secret_label"),
-    whenCondition = obj("when")?.let {
-        FieldCondition(
-            field = it.string("field") ?: "",
-            operator = it.string("operator") ?: "",
-            value = it["value"]?.scalarString().orEmpty(),
-        )
-    },
-)
+private fun JsonObject.toWorkflowAction(): WorkflowAction {
+    val secretLabel = displayText("user_secret_label", "action ${string("id").orEmpty()}")
+    return WorkflowAction(
+        id = string("id") ?: "",
+        type = string("type") ?: "",
+        template = string("template"),
+        outputVar = string("output_var"),
+        artifactId = string("artifact_id"),
+        logicalName = string("logical_name"),
+        mediaType = string("media_type"),
+        contentVar = string("content_var"),
+        inputVar = string("input_var"),
+        algorithm = string("algorithm"),
+        executable = this["executable"]?.jsonPrimitive?.booleanOrNull ?: false,
+        userSecret = this["user_secret"]?.jsonPrimitive?.booleanOrNull ?: false,
+        userSecretLabel = secretLabel.default,
+        whenCondition = obj("when")?.let {
+            FieldCondition(
+                field = it.string("field") ?: "",
+                operator = it.string("operator") ?: "",
+                value = it["value"]?.scalarString().orEmpty(),
+            )
+        },
+        localizedText = localizedTextOf("user_secret_label" to secretLabel),
+    )
+}
 
 private fun JsonObject.parseHostEvents(): List<HostEventSubscription> {
     return when (val hostEvents = this["host_events"]) {
@@ -1313,13 +1325,19 @@ private fun JsonElement.toConfigFieldSpec(): ConfigField {
 
 private fun JsonObject.toConfigField(): ConfigField {
     val id = string("id") ?: string("key") ?: throw ManifestValidationException("config field is missing id")
+    val where = "config field $id"
+    val label = displayText("label", where)
+    val description = displayText("description", where)
+    val placeholder = displayText("placeholder", where)
     val options = array("options").map { element ->
         if (element is JsonObject) {
+            val optionLabel = element.displayText("label", "$where option")
             ConfigOption(
                 value = element["value"]?.scalarString().orEmpty(),
-                label = element.string("label") ?: element["value"]?.scalarString().orEmpty(),
+                label = optionLabel.default ?: element["value"]?.scalarString().orEmpty(),
                 default = element.boolean("default"),
                 placeholder = element.boolean("placeholder"),
+                localizedText = localizedTextOf("label" to optionLabel),
             )
         } else {
             ConfigOption(element.scalarString(), element.scalarString())
@@ -1327,7 +1345,7 @@ private fun JsonObject.toConfigField(): ConfigField {
     }
     return ConfigField(
         id = id,
-        label = string("label") ?: id.toFieldLabel(),
+        label = label.default ?: id.toFieldLabel(),
         type = string("type") ?: "text",
         default = this["default"]?.scalarString()
             ?: options.firstOrNull { it.placeholder }?.value
@@ -1336,8 +1354,8 @@ private fun JsonObject.toConfigField(): ConfigField {
         required = this["required"]?.jsonPrimitive?.booleanOrNull ?: false,
         maxLength = maxLength(id),
         pattern = string("pattern"),
-        description = string("description"),
-        placeholder = string("placeholder"),
+        description = description.default,
+        placeholder = placeholder.default,
         options = options,
         big = this["big"]?.jsonPrimitive?.booleanOrNull ?: false,
         advanced = this["advanced"]?.jsonPrimitive?.booleanOrNull ?: false,
@@ -1349,6 +1367,7 @@ private fun JsonObject.toConfigField(): ConfigField {
         bindings = array("bindings").map { it.jsonObject.toConfigBinding() },
         fetch = obj("fetch")?.toConfigFetchSpec(),
         whenCondition = obj("when")?.toFieldCondition(),
+        localizedText = localizedTextOf("label" to label, "description" to description, "placeholder" to placeholder),
     )
 }
 
@@ -1399,24 +1418,34 @@ private fun JsonObject.toFormSpec(): FormSpec = FormSpec(
     },
 )
 
-private fun JsonObject.toFormPrefillButton(): FormPrefillButton = FormPrefillButton(
-    id = string("id") ?: "",
-    label = string("label") ?: string("id") ?: "",
-    description = string("description"),
-    fetch = obj("fetch")?.toConfigFetchSpec()
-        ?: throw ManifestValidationException("form prefill button is missing fetch"),
-    fieldBindings = obj("field_bindings")?.stringMap().orEmpty(),
-    immutableFields = array("immutable_fields").map { it.scalarString() },
-    whenCondition = obj("when")?.toFieldCondition(),
-)
+private fun JsonObject.toFormPrefillButton(): FormPrefillButton {
+    val label = displayText("label", "form button ${string("id").orEmpty()}")
+    val description = displayText("description", "form button ${string("id").orEmpty()}")
+    return FormPrefillButton(
+        id = string("id") ?: "",
+        label = label.default ?: string("id") ?: "",
+        description = description.default,
+        fetch = obj("fetch")?.toConfigFetchSpec()
+            ?: throw ManifestValidationException("form prefill button is missing fetch"),
+        fieldBindings = obj("field_bindings")?.stringMap().orEmpty(),
+        immutableFields = array("immutable_fields").map { it.scalarString() },
+        whenCondition = obj("when")?.toFieldCondition(),
+        localizedText = localizedTextOf("label" to label, "description" to description),
+    )
+}
 
-private fun JsonObject.toHostProfile(): HostProfile = HostProfile(
-    id = string("id") ?: "",
-    label = string("label") ?: string("id") ?: "",
-    description = string("description"),
-    fields = obj("fields")?.mapValues { it.value.prefillScalarString() }.orEmpty(),
-    immutableFields = array("immutable_fields").map { it.scalarString() },
-)
+private fun JsonObject.toHostProfile(): HostProfile {
+    val label = displayText("label", "host profile ${string("id").orEmpty()}")
+    val description = displayText("description", "host profile ${string("id").orEmpty()}")
+    return HostProfile(
+        id = string("id") ?: "",
+        label = label.default ?: string("id") ?: "",
+        description = description.default,
+        fields = obj("fields")?.mapValues { it.value.prefillScalarString() }.orEmpty(),
+        immutableFields = array("immutable_fields").map { it.scalarString() },
+        localizedText = localizedTextOf("label" to label, "description" to description),
+    )
+}
 
 private fun JsonObject.toConfigBinding(): ConfigBinding = ConfigBinding(
     consumer = string("consumer") ?: "",
@@ -1436,12 +1465,57 @@ private fun JsonObject.parseWizardPages(): List<WizardPage> {
     }
 }
 
-private fun JsonObject.toWizardPage(): WizardPage = WizardPage(
-    id = string("id") ?: "",
-    title = string("title") ?: "",
-    description = string("description"),
-    fields = array("fields").map { it.scalarString() },
-)
+private fun JsonObject.toWizardPage(): WizardPage {
+    val where = "wizard page ${string("id").orEmpty()}"
+    val title = displayText("title", where)
+    val description = displayText("description", where)
+    return WizardPage(
+        id = string("id") ?: "",
+        title = title.default ?: "",
+        description = description.default,
+        fields = array("fields").map { it.scalarString() },
+        localizedText = localizedTextOf("title" to title, "description" to description),
+    )
+}
+
+/** Display text from a sparkplug: [default] is the plain text, [localized] is set when it was a translation map. */
+private class DisplayText(val default: String?, val localized: LocalizedText?)
+
+/**
+ * Reads a display text key, which is either a plain string or a map of
+ * language tag to text, optionally with `ref` naming a [SharedText] string.
+ */
+private fun JsonObject.displayText(key: String, where: String): DisplayText {
+    val value = this[key] ?: return DisplayText(null, null)
+    if (value is JsonPrimitive) return DisplayText(value.contentOrNull, null)
+    if (value !is JsonObject) throw ManifestValidationException("$where $key must be text or a map of translations")
+    if (value.isEmpty()) throw ManifestValidationException("$where $key must not be an empty map")
+    var ref: String? = null
+    val translations = linkedMapOf<String, String>()
+    value.forEach { (entryKey, entry) ->
+        val text = (entry as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() }
+            ?: throw ManifestValidationException("$where $key.$entryKey must be non-empty text")
+        when {
+            entryKey == "ref" -> {
+                if (text !in SharedText.ids) {
+                    throw ManifestValidationException("$where $key.ref names unknown shared text: $text")
+                }
+                ref = text
+            }
+            LANGUAGE_TAG_PATTERN.matches(entryKey) -> translations[entryKey] = text
+            else -> throw ManifestValidationException(
+                "$where $key has key $entryKey, which is neither ref nor a language tag such as en or pt-BR",
+            )
+        }
+    }
+    val default = translations.entries.firstOrNull { it.key.equals("en", ignoreCase = true) }?.value
+        ?: ref?.let(SharedText.english::get)
+        ?: translations.values.first()
+    return DisplayText(default, LocalizedText(translations = translations, ref = ref))
+}
+
+private fun localizedTextOf(vararg entries: Pair<String, DisplayText>): Map<String, LocalizedText> =
+    entries.mapNotNull { (key, text) -> text.localized?.let { key to it } }.toMap()
 
 private fun JsonObject.conditions(key: String): List<FieldCondition> {
     return when (val value = this[key]) {
@@ -1570,7 +1644,7 @@ private fun requireKnownKeys(element: JsonElement, shape: Shape) {
 private val CONDITION_SHAPE = shape("condition", "field selector operator op value")
 private val FETCH_SHAPE = shape("fetch", "url method media_type max_bytes")
 private val OUTPUTS_SHAPE = shape("outputs", "usb iso")
-private val METADATA_SHAPE = shape("metadata", "id name version author publisher description homepage manifest_root_sha256")
+private val METADATA_SHAPE = shape("metadata", "id name version author publisher description homepage manifest_root_sha256 language")
 private val IMAGE_METADATA_SHAPE = shape("image metadata", "id name version author publisher description homepage")
 private val INLINE_SHAPE = shape("inline", "encoding text")
 private const val CANDIDATE_PATHS = "candidate_paths"

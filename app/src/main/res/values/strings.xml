@@ -204,4 +204,39 @@
     <string name="field_length_counter">%1$d / %2$d characters</string>
     <string name="field_too_long">Too long: the limit is %1$d characters</string>
     <string name="field_bad_format">Not in the expected format. See the example below.</string>
+    <!-- Language of these strings; used to match sparkplug translations. -->
+    <string name="ui_language_tag">en</string>
+    <!-- Shared strings sparkplugs can reuse by id (see core SharedText). -->
+    <string name="shared_text_user_name">Full name</string>
+    <string name="shared_text_user_username">Username</string>
+    <string name="shared_text_user_email">Email</string>
+    <string name="shared_text_user_ssh_public_keys">SSH public keys</string>
+    <string name="shared_text_network_suffix">Domain</string>
+    <string name="shared_text_network_wifi_ssid">Wi-Fi network name</string>
+    <string name="shared_text_apt_proxy">APT proxy</string>
+    <string name="shared_text_locale_timezone">Time zone</string>
+    <string name="shared_text_locale_keyboard">Keyboard layout</string>
+    <string name="shared_text_hostname">Hostname</string>
+    <string name="shared_text_fqdn">Fully qualified domain name</string>
+    <string name="shared_text_country">Country</string>
+    <string name="shared_text_language">Language</string>
+    <string name="shared_text_network_card">Network card</string>
+    <string name="shared_text_ip_address">IP address</string>
+    <string name="shared_text_gateway">Gateway</string>
+    <string name="shared_text_dns_servers">DNS servers</string>
+    <string name="shared_text_vlan_id">VLAN ID</string>
+    <string name="shared_text_filesystem">Filesystem</string>
+    <string name="shared_text_install_disk">Install disk</string>
+    <string name="shared_text_root_password">Root password</string>
+    <string name="shared_text_admin_password">Admin password</string>
+    <string name="shared_text_identity">Identity</string>
+    <string name="shared_text_network">Network</string>
+    <string name="shared_text_storage">Storage</string>
+    <string name="shared_text_access">Access</string>
+    <string name="shared_text_packages">Packages</string>
+    <string name="shared_text_first_boot">First boot</string>
+    <string name="shared_text_none">None</string>
+    <string name="shared_text_custom">Custom</string>
+    <string name="shared_text_reboot">Reboot</string>
+    <string name="shared_text_power_off">Power off</string>
 </resources>

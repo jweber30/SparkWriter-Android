@@ -282,6 +282,16 @@ since the error points there. An invalid regular expression, or a non-empty
 A `when` condition holds only while the field it names is itself shown. A field
 nested under a choice that is hidden stays hidden too.
 
+## Display Text Translations
+
+Display text keys (field `label`, `description`, `placeholder`, option `label`,
+page `title` and `description`, button and host profile `label` and
+`description`, and `user_secret_label`) take a plain string or a map of BCP 47
+language tag to text. A map may also hold `ref`, naming one of SparkWriter's
+shared strings. Any other map key, an empty map, blank text, or an unknown `ref`
+fails the load. `metadata.language` (default `en`) is the language of plain
+strings. See [Translating Display Text](sparkwriter_manifests.md#translating-display-text).
+
 ## Delivery Modes
 
 `delivery` remains a single strategy per manifest.

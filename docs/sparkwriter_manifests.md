@@ -403,6 +403,61 @@ Current behavior:
 - `password` fields are never saved to or filled from a profile
 - SparkWriter saves non-empty values when the user advances through wizard pages and when starting a flash/save flow
 
+## Translating Display Text
+
+Text a sparkplug shows the user can be translated. This covers:
+
+- config fields: `label`, `description`, `placeholder`, and option `label`
+- wizard pages: `title` and `description`
+- form buttons and host profiles: `label` and `description`
+- actions: `user_secret_label`
+
+Each of these is either a plain string or a map of language tag to text:
+
+```yaml
+metadata:
+  language: en          # language of plain strings; defaults to en
+
+config_fields:
+  - id: ssh_keys
+    label:              # your own translations
+      en: Root SSH keys
+      fr: Clés SSH root
+  - id: hostname
+    label:
+      ref: hostname     # a SparkWriter shared string
+  - id: proxy
+    label: APT proxy    # plain string, in metadata.language
+    standard_field: apt.proxy
+```
+
+Language tags are BCP 47, such as `fr`, `pt-BR`, or `zh-CN`. A tag such as `fr`
+also matches users on `fr-CA`. Any other key in the map fails the load.
+
+`ref` names a string SparkWriter translates itself, so you get every language the
+app supports without writing them. A map may combine `ref` with your own
+translations; yours win for the languages you list. An unknown `ref` fails the
+load. Shared strings:
+
+| Group | Ids |
+| --- | --- |
+| Standard fields | `user.name`, `user.username`, `user.email`, `user.ssh_public_keys`, `network.suffix`, `network.wifi.ssid`, `apt.proxy`, `locale.timezone`, `locale.keyboard` |
+| Fields | `hostname`, `fqdn`, `country`, `language`, `network_card`, `ip_address`, `gateway`, `dns_servers`, `vlan_id`, `filesystem`, `install_disk`, `root_password`, `admin_password` |
+| Wizard pages | `identity`, `network`, `storage`, `access`, `packages`, `first_boot` |
+| Options | `none`, `custom`, `reboot`, `power_off` |
+
+A field with a `standard_field` from this list uses that shared string as its label
+when you give no translation for the user's language. Above, a French user sees
+`apt.proxy`'s French label, while an English user sees your "APT proxy".
+
+How SparkWriter picks the text, for each of the user's languages in order:
+
+1. your translation in that language (a plain string counts as `metadata.language`)
+2. the shared string, if the app itself is showing that language
+
+If none match, it shows your text in `metadata.language`, then the shared string,
+then the plain text.
+
 ## Visibility Rules
 
 Use `ui_visibility.when` to control when a manifest is offered for the current Source.

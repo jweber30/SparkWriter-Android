@@ -1,6 +1,9 @@
 package net.metalstrapper.sparkwriter
 
+import net.metalstrapper.sparkwriter.core.SharedText
 import net.metalstrapper.sparkwriter.core.SparkManifest
+import net.metalstrapper.sparkwriter.core.TextLocalizer
+import net.metalstrapper.sparkwriter.core.localized
 import net.metalstrapper.sparkwriter.fixtures.parseWorkflowFile
 import net.metalstrapper.sparkwriter.manifest.ManifestRuntime
 import org.junit.Assert.assertEquals
@@ -31,6 +34,27 @@ class BundledProxmoxAutoinstallTest {
         assertTrue(manifest.isAndroidRunnable)
         assertTrue(manifest.hostEvents.isEmpty())
         assertEquals(null, manifest.mailroom)
+    }
+
+    @Test
+    fun englishKeepsProxmoxWordingAndOtherLanguagesUseSharedText() {
+        fun localizedFor(language: String) = manifest.localized(
+            TextLocalizer(listOf(language), language) { id -> if (language == "en") SharedText.english[id] else "$language:$id" },
+        )
+        fun SparkManifest.label(id: String) = configFields.single { it.id == id }.label
+
+        val english = localizedFor("en")
+        assertEquals("Proxmox FQDN", english.label("pve_fqdn"))
+        assertEquals("Static Gateway", english.label("pve_network_gateway"))
+        assertEquals("First Boot", english.wizardPages.last().title)
+        assertEquals("Proxmox root password", english.actionPhases.getValue("on_iso_ready").first().userSecretLabel)
+
+        val french = localizedFor("fr")
+        assertEquals("fr:fqdn", french.label("pve_fqdn"))
+        assertEquals("fr:user.email", french.label("pve_mailto"))
+        assertEquals("VLAN Gateway", french.label("pve_mgmt_vlan_gateway"))
+        assertEquals(listOf("fr:identity", "fr:network", "fr:storage", "fr:access", "fr:first_boot"), french.wizardPages.map { it.title })
+        assertEquals("fr:root_password", french.actionPhases.getValue("on_iso_ready").first().userSecretLabel)
     }
 
     @Test

@@ -204,4 +204,39 @@
     <string name="field_length_counter">%1$d / %2$d حرف</string>
     <string name="field_too_long">طويل جدًا: الحد الأقصى %1$d حرف</string>
     <string name="field_bad_format">التنسيق غير صحيح. راجع المثال أدناه.</string>
+    <!-- Language of these strings; used to match sparkplug translations. -->
+    <string name="ui_language_tag">ar</string>
+    <!-- Shared strings sparkplugs can reuse by id (see core SharedText). -->
+    <string name="shared_text_user_name">الاسم الكامل</string>
+    <string name="shared_text_user_username">اسم المستخدم</string>
+    <string name="shared_text_user_email">البريد الإلكتروني</string>
+    <string name="shared_text_user_ssh_public_keys">مفاتيح SSH العامة</string>
+    <string name="shared_text_network_suffix">النطاق</string>
+    <string name="shared_text_network_wifi_ssid">اسم شبكة Wi-Fi</string>
+    <string name="shared_text_apt_proxy">وكيل APT</string>
+    <string name="shared_text_locale_timezone">المنطقة الزمنية</string>
+    <string name="shared_text_locale_keyboard">تخطيط لوحة المفاتيح</string>
+    <string name="shared_text_hostname">اسم المضيف</string>
+    <string name="shared_text_fqdn">اسم النطاق المؤهل بالكامل</string>
+    <string name="shared_text_country">البلد</string>
+    <string name="shared_text_language">اللغة</string>
+    <string name="shared_text_network_card">بطاقة الشبكة</string>
+    <string name="shared_text_ip_address">عنوان IP</string>
+    <string name="shared_text_gateway">البوابة</string>
+    <string name="shared_text_dns_servers">خوادم DNS</string>
+    <string name="shared_text_vlan_id">معرّف VLAN</string>
+    <string name="shared_text_filesystem">نظام الملفات</string>
+    <string name="shared_text_install_disk">قرص التثبيت</string>
+    <string name="shared_text_root_password">كلمة مرور root</string>
+    <string name="shared_text_admin_password">كلمة مرور المسؤول</string>
+    <string name="shared_text_identity">الهوية</string>
+    <string name="shared_text_network">الشبكة</string>
+    <string name="shared_text_storage">التخزين</string>
+    <string name="shared_text_access">الوصول</string>
+    <string name="shared_text_packages">الحزم</string>
+    <string name="shared_text_first_boot">الإقلاع الأول</string>
+    <string name="shared_text_none">لا شيء</string>
+    <string name="shared_text_custom">مخصص</string>
+    <string name="shared_text_reboot">إعادة التشغيل</string>
+    <string name="shared_text_power_off">إيقاف التشغيل</string>
 </resources>

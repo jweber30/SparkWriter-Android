@@ -586,7 +586,7 @@ fun SparkWriterApp(
         }
         val workflowDetail: @Composable (Modifier) -> Unit = { detailModifier ->
             WorkflowPane(
-                manifest = selectedManifest ?: rawImageManifest,
+                sourceManifest = selectedManifest ?: rawImageManifest,
                 importedImage = importedImage,
                 generatedSecrets = generatedSecrets,
                 onGeneratedSecrets = { generatedSecrets = it },

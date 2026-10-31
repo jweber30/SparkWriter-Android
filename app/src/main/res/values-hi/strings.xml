@@ -204,4 +204,39 @@
     <string name="field_length_counter">%1$d / %2$d वर्ण</string>
     <string name="field_too_long">बहुत लंबा: सीमा %1$d वर्ण है</string>
     <string name="field_bad_format">प्रारूप सही नहीं है। नीचे दिया गया उदाहरण देखें।</string>
+    <!-- Language of these strings; used to match sparkplug translations. -->
+    <string name="ui_language_tag">hi</string>
+    <!-- Shared strings sparkplugs can reuse by id (see core SharedText). -->
+    <string name="shared_text_user_name">पूरा नाम</string>
+    <string name="shared_text_user_username">उपयोगकर्ता नाम</string>
+    <string name="shared_text_user_email">ईमेल</string>
+    <string name="shared_text_user_ssh_public_keys">SSH सार्वजनिक कुंजियाँ</string>
+    <string name="shared_text_network_suffix">डोमेन</string>
+    <string name="shared_text_network_wifi_ssid">Wi-Fi नेटवर्क का नाम</string>
+    <string name="shared_text_apt_proxy">APT प्रॉक्सी</string>
+    <string name="shared_text_locale_timezone">समय क्षेत्र</string>
+    <string name="shared_text_locale_keyboard">कीबोर्ड लेआउट</string>
+    <string name="shared_text_hostname">होस्टनाम</string>
+    <string name="shared_text_fqdn">पूर्ण डोमेन नाम</string>
+    <string name="shared_text_country">देश</string>
+    <string name="shared_text_language">भाषा</string>
+    <string name="shared_text_network_card">नेटवर्क कार्ड</string>
+    <string name="shared_text_ip_address">IP पता</string>
+    <string name="shared_text_gateway">गेटवे</string>
+    <string name="shared_text_dns_servers">DNS सर्वर</string>
+    <string name="shared_text_vlan_id">VLAN ID</string>
+    <string name="shared_text_filesystem">फ़ाइल सिस्टम</string>
+    <string name="shared_text_install_disk">इंस्टॉल डिस्क</string>
+    <string name="shared_text_root_password">root पासवर्ड</string>
+    <string name="shared_text_admin_password">एडमिन पासवर्ड</string>
+    <string name="shared_text_identity">पहचान</string>
+    <string name="shared_text_network">नेटवर्क</string>
+    <string name="shared_text_storage">स्टोरेज</string>
+    <string name="shared_text_access">एक्सेस</string>
+    <string name="shared_text_packages">पैकेज</string>
+    <string name="shared_text_first_boot">पहला बूट</string>
+    <string name="shared_text_none">कोई नहीं</string>
+    <string name="shared_text_custom">कस्टम</string>
+    <string name="shared_text_reboot">रीबूट करें</string>
+    <string name="shared_text_power_off">पावर बंद करें</string>
 </resources>

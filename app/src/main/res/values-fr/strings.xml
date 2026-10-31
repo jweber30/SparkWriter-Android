@@ -204,4 +204,39 @@
     <string name="field_length_counter">%1$d / %2$d caractères</string>
     <string name="field_too_long">Trop long : la limite est de %1$d caractères</string>
     <string name="field_bad_format">Format incorrect. Voir l’exemple ci-dessous.</string>
+    <!-- Language of these strings; used to match sparkplug translations. -->
+    <string name="ui_language_tag">fr</string>
+    <!-- Shared strings sparkplugs can reuse by id (see core SharedText). -->
+    <string name="shared_text_user_name">Nom complet</string>
+    <string name="shared_text_user_username">Nom d\'utilisateur</string>
+    <string name="shared_text_user_email">E-mail</string>
+    <string name="shared_text_user_ssh_public_keys">Clés publiques SSH</string>
+    <string name="shared_text_network_suffix">Domaine</string>
+    <string name="shared_text_network_wifi_ssid">Nom du réseau Wi-Fi</string>
+    <string name="shared_text_apt_proxy">Proxy APT</string>
+    <string name="shared_text_locale_timezone">Fuseau horaire</string>
+    <string name="shared_text_locale_keyboard">Disposition du clavier</string>
+    <string name="shared_text_hostname">Nom d\'hôte</string>
+    <string name="shared_text_fqdn">Nom de domaine complet</string>
+    <string name="shared_text_country">Pays</string>
+    <string name="shared_text_language">Langue</string>
+    <string name="shared_text_network_card">Carte réseau</string>
+    <string name="shared_text_ip_address">Adresse IP</string>
+    <string name="shared_text_gateway">Passerelle</string>
+    <string name="shared_text_dns_servers">Serveurs DNS</string>
+    <string name="shared_text_vlan_id">ID de VLAN</string>
+    <string name="shared_text_filesystem">Système de fichiers</string>
+    <string name="shared_text_install_disk">Disque d\'installation</string>
+    <string name="shared_text_root_password">Mot de passe root</string>
+    <string name="shared_text_admin_password">Mot de passe administrateur</string>
+    <string name="shared_text_identity">Identité</string>
+    <string name="shared_text_network">Réseau</string>
+    <string name="shared_text_storage">Stockage</string>
+    <string name="shared_text_access">Accès</string>
+    <string name="shared_text_packages">Paquets</string>
+    <string name="shared_text_first_boot">Premier démarrage</string>
+    <string name="shared_text_none">Aucun</string>
+    <string name="shared_text_custom">Personnalisé</string>
+    <string name="shared_text_reboot">Redémarrer</string>
+    <string name="shared_text_power_off">Éteindre</string>
 </resources>

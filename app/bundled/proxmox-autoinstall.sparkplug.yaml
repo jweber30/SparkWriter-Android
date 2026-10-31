@@ -18,7 +18,7 @@ actions:
       type: generate_ephemeral_password
       output_var: generated_proxmox_root_password
       user_secret: true
-      user_secret_label: Proxmox root password
+      user_secret_label: { ref: root_password, en: Proxmox root password }
     - id: hash-proxmox-root-password
       type: hash_password
       input_var: generated_proxmox_root_password
@@ -27,20 +27,20 @@ actions:
 
 config_fields:
   - id: pve_fqdn
-    label: Proxmox FQDN
+    label: { ref: fqdn, en: Proxmox FQDN }
     type: text
     default: pve1.srv.home.arpa
     required: true
     max_length: 253
   - id: pve_keyboard
-    label: Keyboard
+    label: { ref: locale.keyboard, en: Keyboard }
     type: text
     default: en-us
     required: true
     storage:
       persist: "true"
   - id: pve_country
-    label: Country
+    label: { ref: country }
     type: text
     default: us
     required: true
@@ -72,7 +72,7 @@ config_fields:
       - value: from-answer
         label: Static
   - id: pve_network_nic
-    label: Network Card
+    label: { ref: network_card, en: Network Card }
     type: select
     default: only
     required: true
@@ -111,7 +111,7 @@ config_fields:
       operator: equals
       value: from-answer
   - id: pve_network_gateway
-    label: Static Gateway
+    label: { ref: gateway, en: Static Gateway }
     type: text
     default: ""
     required: true
@@ -133,7 +133,7 @@ config_fields:
       operator: equals
       value: from-answer
   - id: pve_mgmt_vlan_id
-    label: Management VLAN ID
+    label: { ref: vlan_id, en: Management VLAN ID }
     type: text
     default: ""
     pattern: '409[0-4]|40[0-8]\d|[1-3]\d{3}|[1-9]\d{0,2}'
@@ -171,7 +171,7 @@ config_fields:
       operator: not_empty
       value: ""
   - id: pve_disk_filesystem
-    label: Filesystem
+    label: { ref: filesystem }
     type: select
     default: ext4
     required: true
@@ -195,7 +195,7 @@ config_fields:
     advanced: true
     options:
       - value: ""
-        label: None
+        label: { ref: none }
       - value: raid0
         label: RAID0
       - value: raid1
@@ -227,9 +227,9 @@ config_fields:
     advanced: true
     options:
       - value: reboot
-        label: Reboot
+        label: { ref: reboot }
       - value: poweroff
-        label: Power off
+        label: { ref: power_off }
   - id: pve_community_repos
     label: Package Repositories
     type: select
@@ -258,7 +258,7 @@ config_fields:
 wizard:
   pages:
     - id: identity
-      title: Identity
+      title: { ref: identity }
       fields:
         - pve_fqdn
         - pve_keyboard
@@ -266,7 +266,7 @@ wizard:
         - pve_timezone
         - pve_mailto
     - id: network
-      title: Network
+      title: { ref: network }
       fields:
         - pve_network_source
         - pve_network_nic
@@ -278,18 +278,18 @@ wizard:
         - pve_mgmt_vlan_cidr
         - pve_mgmt_vlan_gateway
     - id: storage
-      title: Storage
+      title: { ref: storage }
       fields:
         - pve_disk_filesystem
         - pve_disk_list
         - pve_zfs_raid
     - id: access
-      title: Access
+      title: { ref: access }
       fields:
         - pve_root_ssh_keys
         - pve_reboot_mode
     - id: first-boot
-      title: First Boot
+      title: { ref: first_boot, en: First Boot }
       fields:
         - pve_community_repos
         - pve_firstboot_command

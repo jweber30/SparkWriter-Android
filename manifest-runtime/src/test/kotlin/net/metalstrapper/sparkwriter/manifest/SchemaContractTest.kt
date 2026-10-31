@@ -78,6 +78,11 @@ class SchemaContractTest {
             "unknown field type" to "$MINIMAL\nconfig_fields:\n  - id: token\n    type: checkbox",
             "non-positive max_length" to "$MINIMAL\nconfig_fields:\n  - id: token\n    max_length: 0",
             "legacy boot patch" to "$MINIMAL\nboot_patch:\n  line_match: linux\n  append_args:\n    - quiet",
+            "unknown translation key" to "$MINIMAL\nconfig_fields:\n  - id: token\n    label:\n      english: Token",
+            "unknown shared text ref" to "$MINIMAL\nconfig_fields:\n  - id: token\n    label:\n      ref: token",
+            "empty translation map" to "$MINIMAL\nconfig_fields:\n  - id: token\n    label: {}",
+            "blank translation" to "$MINIMAL\nconfig_fields:\n  - id: token\n    label:\n      fr: \"\"",
+            "invalid metadata language" to MINIMAL.replace("name: Demo", "name: Demo\n  language: english"),
         )
 
         rejected.forEach { (name, text) ->

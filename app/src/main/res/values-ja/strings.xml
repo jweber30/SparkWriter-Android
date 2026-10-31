@@ -205,4 +205,39 @@
     <string name="return_required_write_ready">このコールバックが成功しない限り、書き込みは開始されません。</string>
     <string name="saving_ellipsis">保存中…</string>
     <string name="view_artifact">%1$s を表示</string>
+    <!-- Language of these strings; used to match sparkplug translations. -->
+    <string name="ui_language_tag">ja</string>
+    <!-- Shared strings sparkplugs can reuse by id (see core SharedText). -->
+    <string name="shared_text_user_name">氏名</string>
+    <string name="shared_text_user_username">ユーザー名</string>
+    <string name="shared_text_user_email">メールアドレス</string>
+    <string name="shared_text_user_ssh_public_keys">SSH 公開鍵</string>
+    <string name="shared_text_network_suffix">ドメイン</string>
+    <string name="shared_text_network_wifi_ssid">Wi-Fi ネットワーク名</string>
+    <string name="shared_text_apt_proxy">APT プロキシ</string>
+    <string name="shared_text_locale_timezone">タイムゾーン</string>
+    <string name="shared_text_locale_keyboard">キーボードレイアウト</string>
+    <string name="shared_text_hostname">ホスト名</string>
+    <string name="shared_text_fqdn">完全修飾ドメイン名</string>
+    <string name="shared_text_country">国</string>
+    <string name="shared_text_language">言語</string>
+    <string name="shared_text_network_card">ネットワークカード</string>
+    <string name="shared_text_ip_address">IP アドレス</string>
+    <string name="shared_text_gateway">ゲートウェイ</string>
+    <string name="shared_text_dns_servers">DNS サーバー</string>
+    <string name="shared_text_vlan_id">VLAN ID</string>
+    <string name="shared_text_filesystem">ファイルシステム</string>
+    <string name="shared_text_install_disk">インストール先ディスク</string>
+    <string name="shared_text_root_password">root パスワード</string>
+    <string name="shared_text_admin_password">管理者パスワード</string>
+    <string name="shared_text_identity">識別情報</string>
+    <string name="shared_text_network">ネットワーク</string>
+    <string name="shared_text_storage">ストレージ</string>
+    <string name="shared_text_access">アクセス</string>
+    <string name="shared_text_packages">パッケージ</string>
+    <string name="shared_text_first_boot">初回起動</string>
+    <string name="shared_text_none">なし</string>
+    <string name="shared_text_custom">カスタム</string>
+    <string name="shared_text_reboot">再起動</string>
+    <string name="shared_text_power_off">電源オフ</string>
 </resources>
