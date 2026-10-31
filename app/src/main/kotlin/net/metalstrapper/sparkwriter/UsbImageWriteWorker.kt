@@ -13,10 +13,13 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ForegroundInfo
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -47,6 +50,7 @@ import net.metalstrapper.sparkwriter.storage.ReceiptEntity
 import net.metalstrapper.sparkwriter.storage.SparkWriterDatabase
 import net.metalstrapper.sparkwriter.usb.AndroidUsbHostBlockWriter
 import net.metalstrapper.sparkwriter.usb.UsbWriteGate
+import net.metalstrapper.sparkwriter.usb.WriteRefusedException
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -103,13 +107,21 @@ class UsbImageWriteWorker(
             ?.let(::File)
         var writeIntent: WriteIntent? = null
         var completedReceiptPersisted = false
-        return runCatching {
+        return try {
             UsbWriteGate.withExclusiveWrite {
                 ensureNotificationChannel()
                 updateProgress(0, applicationContext.getString(R.string.preparing_usb_write), "foreground")
 
                 var intent = inputData.toWriteIntent()
                 writeIntent = intent
+
+                // A destructive write must never restart on its own: after process death or a
+                // system stop, the device that was confirmed may no longer be the one attached.
+                if (runAttemptCount > 0) {
+                    throw WriteRefusedException(
+                        "USB write was interrupted and will not restart automatically; start it again to rewrite the device",
+                    )
+                }
 
                 publishWriteStartCallbacks(
                     writeIntent = intent,
@@ -190,7 +202,19 @@ class UsbImageWriteWorker(
                 }
                 Result.success(workDataOf(UsbWriteData.KEY_MESSAGE to completionMessage))
             }
-        }.getOrElse { error ->
+        } catch (error: Throwable) {
+            if (error is CancellationException && isStopped) {
+                // The coroutine is already cancelled, so suspending work (the receipt's Room write)
+                // only runs under NonCancellable. Rethrow so WorkManager records CANCELLED/STOPPED.
+                val message = cancelledWriteMessage(currentStage, stopReason)
+                Log.w("SparkWriter", "USB write worker stopped: $message")
+                if (!completedReceiptPersisted) {
+                    withContext(NonCancellable) {
+                        writeIntent?.let { tryPersistReceipt(it, WriteStatus.CANCELLED, message) }
+                    }
+                }
+                throw error
+            }
             val message = error.sparkWriterFailureMessage()
             Log.e("SparkWriter", "USB write worker failed: $message", error)
             runCatching { updateProgress(0, applicationContext.getString(R.string.usb_write_failed, message), "failed") }
@@ -198,7 +222,7 @@ class UsbImageWriteWorker(
                 writeIntent?.let { tryPersistReceipt(it, WriteStatus.FAILED, message) }
             }
             Result.failure(workDataOf(UsbWriteData.KEY_MESSAGE to message))
-        }.also {
+        } finally {
             auxiliaryDataFile?.delete()
             fixedByteRangeFile?.delete()
             bootPatchFile?.delete()
@@ -207,6 +231,9 @@ class UsbImageWriteWorker(
         }
     }
 
+    /** Last stage reported through [updateProgress], recorded on cancellation receipts. */
+    private var currentStage: String = "foreground"
+
     private suspend fun updateProgress(
         percent: Int,
         message: String,
@@ -214,6 +241,7 @@ class UsbImageWriteWorker(
         subStage: String? = null,
     ) {
         val clamped = percent.coerceIn(0, 100)
+        stage?.ifBlank { null }?.let { currentStage = it }
         setProgress(
             workDataOf(
                 UsbWriteData.KEY_PERCENT to clamped,
@@ -962,6 +990,19 @@ private fun randomPassword(): String {
             append(alphabet[random.nextInt(alphabet.length)])
         }
     }
+}
+
+/**
+ * Receipt message for a write that stopped before completing. Stages after write_image mean the
+ * base image may be fully written but unpatched; any stage means the device must not be trusted.
+ */
+internal fun cancelledWriteMessage(stage: String, stopReason: Int): String {
+    val cause = when (stopReason) {
+        WorkInfo.STOP_REASON_CANCELLED_BY_APP -> "cancelled"
+        WorkInfo.STOP_REASON_NOT_STOPPED -> "cancelled"
+        else -> "stopped by the system (reason $stopReason)"
+    }
+    return "USB write $cause during $stage; the device contents are incomplete and must be rewritten"
 }
 
 internal fun Throwable.sparkWriterFailureMessage(): String {
