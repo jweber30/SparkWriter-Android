@@ -247,8 +247,12 @@ A placeholder may pipe its value through filters: `{{ name | filter }}`.
   Values may not contain NUL bytes.
 - `toml_string` emits a TOML basic string with `"`, `\` and control
   characters escaped.
+- `mac_hex` turns a MAC address such as `00:11:22:AA:BB:CC` into 12 lowercase
+  hex digits (`001122aabbcc`), the form udev uses in `ID_NET_NAME_MAC`. It
+  accepts `:`, `-` or `.` separators and fails the render on anything that
+  is not a MAC address. It does not quote, so it may sit inside a quoted string.
 
-Both filters emit the surrounding quotes themselves, so write
+The quoting filters emit the surrounding quotes themselves, so write
 `name={{ name | shell_quote }}` and `key = {{ name | toml_string }}`, never
 `'{{ name | shell_quote }}'`. Android rejects at load time a malformed
 placeholder, an unknown filter, or a quoting filter wrapped in quotes.
@@ -267,6 +271,17 @@ than `max_length` fails the load.
 
 Set a limit on any field rendered into a fixed-size patch slot, so the rendered
 artifact fits its `byte_length`.
+
+`pattern` is a regular expression that a non-empty `text`, `password`,
+`multiline`, or `array` value must match in full. An empty value is left to
+`required`. The editor marks a value that does not match, the wizard will not
+continue while one is on screen, and rendering checks again. A field the wizard
+hides is not checked. Put an example of the expected format in `description`,
+since the error points there. An invalid regular expression, or a non-empty
+`default` that does not match, fails the load.
+
+A `when` condition holds only while the field it names is itself shown. A field
+nested under a choice that is hidden stays hidden too.
 
 ## Delivery Modes
 

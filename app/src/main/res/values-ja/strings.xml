@@ -195,6 +195,7 @@
     <string name="sparkplug_source_url">SparkPlug ソース URL</string>
     <string name="field_length_counter">%1$d / %2$d 文字</string>
     <string name="field_too_long">長すぎます: 上限は %1$d 文字です</string>
+    <string name="field_bad_format">形式が正しくありません。下の例を参照してください。</string>
     <string name="artifact_details">生成物の詳細</string>
     <string name="clipboard_label">SparkWriter</string>
     <string name="notification_permission_explanation">SparkWriter は、ほかのアプリを使用している間も USB 書き込みの進行状況と完了を通知で表示します。</string>

@@ -203,4 +203,5 @@
     <string name="sparkplug_source_url">SparkPlug स्रोत URL</string>
     <string name="field_length_counter">%1$d / %2$d वर्ण</string>
     <string name="field_too_long">बहुत लंबा: सीमा %1$d वर्ण है</string>
+    <string name="field_bad_format">प्रारूप सही नहीं है। नीचे दिया गया उदाहरण देखें।</string>
 </resources>

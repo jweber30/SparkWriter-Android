@@ -68,6 +68,20 @@ class TemplateValidationTest {
     }
 
     @Test
+    fun macHexNormalizesSeparatorsAndCase() {
+        listOf("00:11:22:AA:bb:CC", "00-11-22-aa-bb-cc", "001122aabbcc", "0011.22aa.bbcc", " 00:11:22:aa:bb:cc ").forEach {
+            assertEquals(it, "001122aabbcc", SparkTemplateFilters.macHex(it))
+        }
+    }
+
+    @Test
+    fun macHexRejectsAnythingElse() {
+        listOf("", "00:11:22:aa:bb", "00:11:22:aa:bb:cc:dd", "00:11:22:aa:bb:cg", "*\"\n[x]").forEach {
+            assertThrows(it, IllegalArgumentException::class.java) { SparkTemplateFilters.macHex(it) }
+        }
+    }
+
+    @Test
     fun filtersChainInOrder() {
         assertEquals(
             SparkTemplateFilters.tomlString(SparkTemplateFilters.shellQuote("a'b")),
@@ -127,6 +141,31 @@ class TemplateValidationTest {
     @Test
     fun rejectsDefaultLongerThanMaxLength() {
         assertRejected(withField("default: toolong\n    max_length: 3"), "default is longer than its max_length")
+    }
+
+    @Test
+    fun parsesPattern() {
+        val manifest = runtime.parseCombined(withField("pattern: '[0-9]+'"))
+        assertEquals("[0-9]+", manifest.configFields.single().pattern)
+    }
+
+    @Test
+    fun rejectsInvalidPattern() {
+        assertRejected(withField("pattern: '[0-9'"), "pattern is not a valid regular expression")
+    }
+
+    @Test
+    fun rejectsPatternOnSelect() {
+        assertRejected(
+            withField("type: select\n    pattern: 'a'\n    options:\n      - a"),
+            "pattern is not supported for type select",
+        )
+    }
+
+    @Test
+    fun rejectsDefaultThatDoesNotMatchPattern() {
+        assertRejected(withField("default: abc\n    pattern: '[0-9]+'"), "default does not match its pattern")
+        runtime.parseCombined(withField("default: \"\"\n    pattern: '[0-9]+'"))
     }
 
     private fun assertRejected(manifest: String, message: String) {

@@ -203,4 +203,5 @@
     <string name="usb_write_failed">Échec de l\'écriture USB\u00A0: %1$s</string>
     <string name="field_length_counter">%1$d / %2$d caractères</string>
     <string name="field_too_long">Trop long : la limite est de %1$d caractères</string>
+    <string name="field_bad_format">Format incorrect. Voir l’exemple ci-dessous.</string>
 </resources>

@@ -112,15 +112,21 @@ internal fun ConfigFieldEditor(
         }
     }
     val overLimit = rejectedOverLimit || field.exceedsMaxLength(value)
-    val lengthSupportingText: (@Composable () -> Unit)? = field.maxLength?.let { maxLength ->
-        {
-            Text(
-                if (overLimit) {
-                    stringResource(R.string.field_too_long, maxLength)
-                } else {
-                    stringResource(R.string.field_length_counter, value.length, maxLength)
-                },
-            )
+    val badFormat = field.violatesPattern(value)
+    val lengthSupportingText: (@Composable () -> Unit)? = when {
+        badFormat -> {
+            { Text(stringResource(R.string.field_bad_format)) }
+        }
+        else -> field.maxLength?.let { maxLength ->
+            {
+                Text(
+                    if (overLimit) {
+                        stringResource(R.string.field_too_long, maxLength)
+                    } else {
+                        stringResource(R.string.field_length_counter, value.length, maxLength)
+                    },
+                )
+            }
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
@@ -146,7 +152,7 @@ internal fun ConfigFieldEditor(
                 placeholder = field.placeholder,
                 enabled = editable,
                 minLines = if (field.big) 4 else 1,
-                isError = overLimit,
+                isError = overLimit || badFormat,
                 supportingText = lengthSupportingText,
             )
             else -> OutlinedTextField(
@@ -157,7 +163,7 @@ internal fun ConfigFieldEditor(
                 placeholder = field.placeholder?.let { { Text(it) } },
                 minLines = if (field.type == "multiline" || field.big) 4 else 1,
                 enabled = editable,
-                isError = overLimit,
+                isError = overLimit || badFormat,
                 supportingText = lengthSupportingText,
             )
         }

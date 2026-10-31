@@ -71,12 +71,41 @@ config_fields:
         label: DHCP
       - value: from-answer
         label: Static
+  - id: pve_network_nic
+    label: Network Card
+    type: select
+    default: only
+    required: true
+    description: >-
+      Static mode needs to know which network card to use. "Only NIC" picks the first
+      card the installer finds, so use it only on a host with one card.
+    options:
+      - value: only
+        label: Only NIC
+      - value: mac
+        label: Management NIC MAC
+    when:
+      field: pve_network_source
+      operator: equals
+      value: from-answer
+  - id: pve_network_mac
+    label: Management NIC MAC
+    type: text
+    default: ""
+    required: true
+    pattern: '[0-9A-Fa-f]{2}([:-]?[0-9A-Fa-f]{2}){5}|[0-9A-Fa-f]{4}(\.[0-9A-Fa-f]{4}){2}'
+    description: "The MAC address of the card to manage the host through. Example: 00:11:22:aa:bb:cc"
+    when:
+      field: pve_network_nic
+      operator: equals
+      value: mac
   - id: pve_network_cidr
     label: Static CIDR
     type: text
     default: ""
-    advanced: true
-    description: "Example: 192.0.2.10/24"
+    required: true
+    pattern: '((25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}/(3[0-2]|[12]?\d)|[0-9A-Fa-f]{0,4}(:[0-9A-Fa-f]{0,4}){2,7}/(12[0-8]|1[01]\d|[1-9]?\d))'
+    description: "The address on the untagged network, on vmbr0. Example: 192.0.2.10/24"
     when:
       field: pve_network_source
       operator: equals
@@ -85,7 +114,9 @@ config_fields:
     label: Static Gateway
     type: text
     default: ""
-    advanced: true
+    required: true
+    pattern: '((25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}|[0-9A-Fa-f]{0,4}(:[0-9A-Fa-f]{0,4}){2,7})'
+    description: "Example: 192.0.2.1"
     when:
       field: pve_network_source
       operator: equals
@@ -94,11 +125,51 @@ config_fields:
     label: Static DNS
     type: text
     default: ""
-    advanced: true
+    required: true
+    pattern: '((25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}|[0-9A-Fa-f]{0,4}(:[0-9A-Fa-f]{0,4}){2,7})'
+    description: "Example: 192.0.2.1"
     when:
       field: pve_network_source
       operator: equals
       value: from-answer
+  - id: pve_mgmt_vlan_id
+    label: Management VLAN ID
+    type: text
+    default: ""
+    pattern: '409[0-4]|40[0-8]\d|[1-3]\d{3}|[1-9]\d{0,2}'
+    description: >-
+      Optional, 1 to 4094. Adds a tagged interface vmbr0.<ID> on first boot and makes its
+      address the host's own address in /etc/hosts, which Proxmox uses for clustering.
+      vmbr0 becomes VLAN-aware and keeps its untagged address, so you can still reach the
+      host if the VLAN is wrong. Remove the untagged address yourself once the VLAN works.
+      The switch port must carry this VLAN tagged.
+    when:
+      field: pve_network_source
+      operator: equals
+      value: from-answer
+  - id: pve_mgmt_vlan_cidr
+    label: VLAN CIDR
+    type: text
+    default: ""
+    required: true
+    pattern: '((25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}/(3[0-2]|[12]?\d)|[0-9A-Fa-f]{0,4}(:[0-9A-Fa-f]{0,4}){2,7}/(12[0-8]|1[01]\d|[1-9]?\d))'
+    description: "The host's address on the management VLAN. Example: 198.51.100.10/24"
+    when:
+      field: pve_mgmt_vlan_id
+      operator: not_empty
+      value: ""
+  - id: pve_mgmt_vlan_gateway
+    label: VLAN Gateway
+    type: text
+    default: ""
+    pattern: '((25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}|[0-9A-Fa-f]{0,4}(:[0-9A-Fa-f]{0,4}){2,7})'
+    description: >-
+      Optional. Moves the default route to the VLAN. Leave it blank to keep the default
+      route on the untagged gateway. Example: 198.51.100.1
+    when:
+      field: pve_mgmt_vlan_id
+      operator: not_empty
+      value: ""
   - id: pve_disk_filesystem
     label: Filesystem
     type: select
@@ -196,9 +267,14 @@ wizard:
       title: Network
       fields:
         - pve_network_source
+        - pve_network_nic
+        - pve_network_mac
         - pve_network_cidr
         - pve_network_gateway
         - pve_network_dns
+        - pve_mgmt_vlan_id
+        - pve_mgmt_vlan_cidr
+        - pve_mgmt_vlan_gateway
     - id: storage
       title: Storage
       fields:
@@ -244,6 +320,11 @@ templates:
     cidr = {{ pve_network_cidr | toml_string }}
     gateway = {{ pve_network_gateway | toml_string }}
     dns = {{ pve_network_dns | toml_string }}
+    {% if pve_network_mac %}
+    filter.ID_NET_NAME_MAC = "*{{ pve_network_mac | mac_hex }}"
+    {% else %}
+    filter.ID_NET_NAME_MAC = "*"
+    {% endif %}
     {% endif %}
     [disk-setup]
     filesystem = {{ pve_disk_filesystem | toml_string }}
@@ -253,19 +334,142 @@ templates:
     {% endif %}
     [first-boot]
     source = "from-iso"
-    ordering = "fully-up"
+    ordering = "before-network"
   firstboot_script: |
     #!/usr/bin/env bash
-    # Proxmox VE first-boot script rendered by SparkWriter. Runs once, as root.
+    # Proxmox VE first-boot script rendered by SparkWriter. Runs as root.
+    #
+    # Proxmox runs it once before networking starts. That early phase sets up the
+    # management VLAN, so the host comes up on its final address the first time,
+    # then schedules a one-shot unit that runs this script again with "late" once
+    # the host is fully up, for the repository setup and the custom command.
     set -Eeuo pipefail
-    log_file=/var/log/sparkwriter-firstboot.log
-    (umask 077 && touch "$log_file")
+    target_root=''
+    state_rel=/var/lib/sparkwriter
+    state_dir="$target_root$state_rel"
+    late_unit=sparkwriter-firstboot-late.service
+    log_file="$target_root/var/log/sparkwriter-firstboot.log"
+    (umask 077 && mkdir -p "${log_file%/*}" && touch "$log_file")
     exec > >(tee -a "$log_file") 2>&1
     log() {
       printf '[sparkwriter-firstboot] %s\n' "$*"
     }
+    fqdn={{ pve_fqdn | shell_quote }}
     repo_mode={{ pve_community_repos | shell_quote }}
     custom_command={{ pve_firstboot_command | shell_quote }}
+    vlan_id=''
+    vlan_cidr=''
+    vlan_gateway=''
+    {% if pve_mgmt_vlan_id %}
+    vlan_id={{ pve_mgmt_vlan_id | shell_quote }}
+    vlan_cidr={{ pve_mgmt_vlan_cidr | shell_quote }}
+    {% endif %}
+    {% if pve_mgmt_vlan_gateway %}
+    vlan_gateway={{ pve_mgmt_vlan_gateway | shell_quote }}
+    {% endif %}
+    bridge=vmbr0
+    interfaces_file="$target_root/etc/network/interfaces"
+    hosts_file="$target_root/etc/hosts"
+    vlan_marker='# sparkwriter: management VLAN'
+
+    # Make vmbr0 VLAN-aware and add vmbr0.<id> with the VLAN address. vmbr0 keeps
+    # its untagged address as a way back in. A VLAN gateway takes over the default
+    # route of the same IP family. /etc/hosts then names the VLAN address, which
+    # Proxmox uses as the node's address. Leaves both files unchanged on failure.
+    setup_management_vlan() {
+      local vlan_if="$bridge.$vlan_id" vlan_ip="${vlan_cidr%/*}" short="${fqdn%%.*}"
+      if ! [[ "$vlan_id" =~ ^[0-9]+$ ]] || [ "$vlan_id" -lt 1 ] || [ "$vlan_id" -gt 4094 ]; then
+        log "VLAN ID $vlan_id is not between 1 and 4094"
+        return 1
+      fi
+      if grep -qF "$vlan_marker" "$interfaces_file"; then
+        log "Management VLAN is already set up"
+        return 0
+      fi
+      if ! grep -q "^iface $bridge " "$interfaces_file"; then
+        log "$interfaces_file has no $bridge"
+        return 1
+      fi
+      cp -p "$interfaces_file" "$interfaces_file.sparkwriter-orig" || return 1
+      cp -p "$hosts_file" "$hosts_file.sparkwriter-orig" || return 1
+      awk -v bridge="$bridge" -v vlan_if="$vlan_if" -v cidr="$vlan_cidr" \
+          -v gateway="$vlan_gateway" -v marker="$vlan_marker" '
+        function family(addr) { return index(addr, ":") ? "inet6" : "inet" }
+        function vlan_stanza() {
+          print marker ". " bridge " keeps its untagged address as a"
+          print "# fallback; remove that address once you can reach the host over the VLAN."
+          print "auto " vlan_if
+          print "iface " vlan_if " " family(cidr) " static"
+          print "\taddress " cidr
+          if (gateway != "") print "\tgateway " gateway
+          print ""
+          added = 1
+        }
+        /^[^ \t#]/ { in_bridge = ($1 == "iface" && $2 == bridge) }
+        /^source / && !added { vlan_stanza() }
+        in_bridge && $1 == "gateway" && gateway != "" && family($2) == family(gateway) { next }
+        { print }
+        $1 == "iface" && $2 == bridge {
+          print "\tbridge-vlan-aware yes"
+          print "\tbridge-vids 2-4094"
+        }
+        END { if (!added) { print ""; vlan_stanza() } }
+      ' "$interfaces_file.sparkwriter-orig" >"$interfaces_file" || return 1
+      awk -v ip="$vlan_ip" -v fqdn="$fqdn" -v short="$short" '
+        /^[ \t]*#/ || NF < 2 { print; next }
+        {
+          for (i = 2; i <= NF; i++) {
+            if ($i == fqdn) {
+              if (!done) print ip " " fqdn " " short
+              done = 1
+              next
+            }
+          }
+          print
+        }
+        END { if (!done) print ip " " fqdn " " short }
+      ' "$hosts_file.sparkwriter-orig" >"$hosts_file" || return 1
+      log "Added $vlan_if with $vlan_cidr; $fqdn now resolves to $vlan_ip"
+    }
+
+    restore_network_files() {
+      local file
+      for file in "$interfaces_file" "$hosts_file"; do
+        if [ -e "$file.sparkwriter-orig" ]; then
+          cat "$file.sparkwriter-orig" >"$file"
+        fi
+      done
+    }
+
+    # Proxmox only runs its hook in one boot phase, so the steps that need the
+    # network run from a unit of our own, once, after the host is fully up.
+    schedule_late_phase() {
+      local unit_dir="$target_root/etc/systemd/system"
+      (umask 077 && mkdir -p "$state_dir")
+      install -m 0700 "${BASH_SOURCE[0]}" "$state_dir/firstboot.sh"
+      touch "$state_dir/late-pending"
+      mkdir -p "$unit_dir"
+      cat >"$unit_dir/$late_unit" <<EOF_UNIT
+    [Unit]
+    Description=SparkWriter first-boot setup (after network)
+    After=network-online.target pveproxy.service
+    Wants=network-online.target
+    ConditionPathExists=$state_rel/late-pending
+
+    [Service]
+    Type=oneshot
+    ExecStart=$state_rel/firstboot.sh late
+    ExecStartPost=/usr/bin/rm -f $state_rel/late-pending
+
+    [Install]
+    WantedBy=multi-user.target
+    EOF_UNIT
+      systemctl daemon-reload
+      systemctl enable "$late_unit"
+      systemctl start --no-block "$late_unit"
+      log "Scheduled $late_unit"
+    }
+
     # Turn off a repository file without deleting it: deb822 files get "Enabled: no",
     # one-line .list files get their deb lines commented out.
     disable_repo_file() {
@@ -286,28 +490,29 @@ templates:
       log "Disabled $file"
     }
     use_community_repositories() {
-      local suite keyring signed_by=""
-      suite="$(. /etc/os-release && printf '%s' "${VERSION_CODENAME:-}")"
+      local suite keyring signed_by="" sources_dir="$target_root/etc/apt/sources.list.d"
+      suite="$(. "$target_root/etc/os-release" && printf '%s' "${VERSION_CODENAME:-}")"
       if [ -z "$suite" ]; then
         log "Unknown Debian release; leaving repositories unchanged"
         return 0
       fi
-      for file in /etc/apt/sources.list.d/pve-enterprise.sources \
-                  /etc/apt/sources.list.d/pve-enterprise.list \
-                  /etc/apt/sources.list.d/ceph.sources \
-                  /etc/apt/sources.list.d/ceph.list; do
+      for file in "$sources_dir/pve-enterprise.sources" \
+                  "$sources_dir/pve-enterprise.list" \
+                  "$sources_dir/ceph.sources" \
+                  "$sources_dir/ceph.list"; do
         disable_repo_file "$file"
       done
       keyring=/usr/share/keyrings/proxmox-archive-keyring.gpg
-      if [ -r "$keyring" ]; then
+      if [ -r "$target_root$keyring" ]; then
         signed_by="Signed-By: $keyring"
       fi
-      cat >/etc/apt/sources.list.d/proxmox-community.sources <<EOF_PVE
+      cat >"$sources_dir/proxmox-community.sources" <<EOF_PVE
     Types: deb
     URIs: https://download.proxmox.com/debian/pve
     Suites: $suite
     Components: pve-no-subscription
     $signed_by
+
     Types: deb
     URIs: https://download.proxmox.com/debian/ceph-squid
     Suites: $suite
@@ -317,19 +522,39 @@ templates:
       log "Enabled Proxmox community repositories for $suite"
       DEBIAN_FRONTEND=noninteractive apt-get update
     }
-    if [ "$repo_mode" = "community" ]; then
-      use_community_repositories
-    else
-      log "Keeping Proxmox default repositories"
-    fi
-    if [ -n "$custom_command" ]; then
-      log "Running custom first-boot command"
-      status=0
-      bash -c "$custom_command" || status=$?
-      if [ "$status" -ne 0 ]; then
-        log "Custom first-boot command failed with exit status $status"
-        exit "$status"
+
+    run_early_phase() {
+      if [ -n "$vlan_id" ]; then
+        # A broken VLAN must not keep the host off the network: fall back to
+        # the untagged address the installer wrote.
+        if ! setup_management_vlan; then
+          restore_network_files
+          log "Management VLAN setup failed; the host keeps its untagged address only"
+        fi
       fi
-      log "Custom first-boot command finished"
-    fi
-    log "First boot complete"
+      schedule_late_phase
+    }
+
+    run_late_phase() {
+      if [ "$repo_mode" = "community" ]; then
+        use_community_repositories
+      else
+        log "Keeping Proxmox default repositories"
+      fi
+      if [ -n "$custom_command" ]; then
+        log "Running custom first-boot command"
+        status=0
+        bash -c "$custom_command" || status=$?
+        if [ "$status" -ne 0 ]; then
+          log "Custom first-boot command failed with exit status $status"
+          exit "$status"
+        fi
+        log "Custom first-boot command finished"
+      fi
+      log "First boot complete"
+    }
+
+    case "${1:-}" in
+      late) run_late_phase ;;
+      *) run_early_phase ;;
+    esac

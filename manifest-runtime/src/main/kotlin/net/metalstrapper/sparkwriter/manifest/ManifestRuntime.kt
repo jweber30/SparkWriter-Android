@@ -565,6 +565,7 @@ private fun SparkManifest.validateSupportedValues() {
 private fun SparkManifest.validateContract(): SparkManifest {
     validateSupportedValues()
     validateConfigFieldLengths()
+    validateConfigFieldPatterns()
     validateTemplatePlaceholders()
     validateFormPrefillContract()
     validateHostEvents()
@@ -601,6 +602,23 @@ private fun SparkManifest.validateConfigFieldLengths() {
         }
         if (field.default.length > maxLength) {
             throw ManifestValidationException("config field ${field.id} default is longer than its max_length")
+        }
+    }
+}
+
+private fun SparkManifest.validateConfigFieldPatterns() {
+    configFields.forEach { field ->
+        val pattern = field.pattern ?: return@forEach
+        if (field.type !in MAX_LENGTH_FIELD_TYPES) {
+            throw ManifestValidationException("config field ${field.id} pattern is not supported for type ${field.type}")
+        }
+        val regex = try {
+            Regex(pattern)
+        } catch (error: IllegalArgumentException) {
+            throw ManifestValidationException("config field ${field.id} pattern is not a valid regular expression")
+        }
+        if (field.default.isNotEmpty() && !regex.matches(field.default)) {
+            throw ManifestValidationException("config field ${field.id} default does not match its pattern")
         }
     }
 }
@@ -1317,6 +1335,7 @@ private fun JsonObject.toConfigField(): ConfigField {
             ?: "",
         required = this["required"]?.jsonPrimitive?.booleanOrNull ?: false,
         maxLength = maxLength(id),
+        pattern = string("pattern"),
         description = string("description"),
         placeholder = string("placeholder"),
         options = options,
@@ -1587,7 +1606,7 @@ private val WORKFLOW_SHAPE = shape(
     "config_fields" to Items(
         shape(
             "config field",
-            "id key label type default required max_length description placeholder big advanced hidden disabled immutable standard_field storage",
+            "id key label type default required max_length pattern description placeholder big advanced hidden disabled immutable standard_field storage",
             "options" to Items(shape("config field option", "value label default placeholder")),
             "bindings" to Items(shape("config field binding", "consumer target destination encoding")),
             "fetch" to FETCH_SHAPE,

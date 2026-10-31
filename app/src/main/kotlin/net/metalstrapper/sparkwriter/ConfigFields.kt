@@ -31,12 +31,23 @@ internal fun Map<String, String>.valueFor(field: ConfigField): String = lookupFi
 
 internal fun ConfigField.exceedsMaxLength(value: String): Boolean = maxLength?.let { value.length > it } == true
 
-/** Render-time backstop for max_length; prefill and saved values can bypass the editor's limit. */
+/** An empty value never violates the pattern; `required` covers blanks. */
+internal fun ConfigField.violatesPattern(value: String): Boolean =
+    pattern?.let { value.isNotEmpty() && !Regex(it).matches(value) } == true
+
+/**
+ * Render-time backstop for max_length and pattern; prefill and saved values can
+ * bypass the editor. Only fields present in [values] are checked, so a field the
+ * wizard hid is not held to its pattern.
+ */
 internal fun SparkManifest.requireConfigFieldLengths(values: Map<String, String>) {
     configFields.forEach { field ->
         val value = values.valueFor(field)
         if (field.exceedsMaxLength(value)) {
             error("${field.label} is ${value.length} characters; the limit is ${field.maxLength}")
+        }
+        if (field.violatesPattern(value)) {
+            error("${field.label} is not in the expected format: $value")
         }
     }
 }
@@ -97,7 +108,7 @@ internal fun SparkManifest.activeConfigValues(values: Map<String, String>): Map<
             put(key, value)
         }
     }
-    val activeFields = configFields.filter { it.whenCondition.matches(valuesWithDefaults) }
+    val activeFields = activeConfigFields(valuesWithDefaults)
     return buildMap {
         putAll(source?.metadata.orEmpty())
         activeFields.forEach { field ->
@@ -142,6 +153,22 @@ private fun String.toTomlStringArray(): String {
     return values.joinToString(prefix = "[", postfix = "]") { item ->
         "\"" + item.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
     }
+}
+
+/**
+ * Fields whose `when` condition holds. A condition on a field that is itself
+ * inactive does not hold, so a field nested under a hidden choice stays hidden.
+ */
+internal fun SparkManifest.activeConfigFields(values: Map<String, String>): List<ConfigField> {
+    val byId = configFields.associateBy { it.formFieldId() }
+    val memo = mutableMapOf<String, Boolean>()
+    fun isActive(field: ConfigField, seen: Set<String>): Boolean = memo.getOrPut(field.formFieldId()) {
+        val condition = field.whenCondition ?: return@getOrPut true
+        if (!condition.matches(values)) return@getOrPut false
+        val parent = byId[condition.field.toCanonicalFieldId()] ?: return@getOrPut true
+        parent.formFieldId() !in seen && isActive(parent, seen + field.formFieldId())
+    }
+    return configFields.filter { isActive(it, emptySet()) }
 }
 
 internal fun FieldCondition?.matches(values: Map<String, String>): Boolean {

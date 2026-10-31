@@ -236,7 +236,7 @@ internal fun WorkflowPane(
         context.registerReceiver(receiver, filter)
         onDispose { context.unregisterReceiver(receiver) }
     }
-    val activeConfigFields = manifest.configFields.filter { it.whenCondition.matches(values) }
+    val activeConfigFields = manifest.activeConfigFields(values)
     val displayConfigFields = activeConfigFields.filterNot { it.hidden }
     val configPages = manifest.displayWizardPages(displayConfigFields)
     val hasEditableConfigFields = displayConfigFields.any(ConfigField::isWizardEditable)
@@ -253,11 +253,13 @@ internal fun WorkflowPane(
     val advancedPageFields = currentPageFields.filter { it.advanced && it.whenCondition == null }
     val currentPageComplete = currentPageFields.all { field ->
         (!field.blocksUserProgressWhenBlank() || values.valueFor(field).isNotBlank()) &&
-            !field.exceedsMaxLength(values.valueFor(field))
+            !field.exceedsMaxLength(values.valueFor(field)) &&
+            !field.violatesPattern(values.valueFor(field))
     }
     val requiredConfigComplete = activeConfigFields.all { field ->
         (!field.blocksUserProgressWhenBlank() || values.valueFor(field).isNotBlank()) &&
-            !field.exceedsMaxLength(values.valueFor(field))
+            !field.exceedsMaxLength(values.valueFor(field)) &&
+            !field.violatesPattern(values.valueFor(field))
     }
     val startWriteEnabled = !writeActive &&
         confirmedDeviceId == selectedDeviceId && selectedDeviceId != null &&

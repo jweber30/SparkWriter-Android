@@ -16,6 +16,7 @@ object SparkTemplateFilters {
     private val filters: Map<String, (String) -> String> = mapOf(
         "shell_quote" to ::shellQuote,
         "toml_string" to ::tomlString,
+        "mac_hex" to ::macHex,
     )
 
     /** Filters whose output already carries its own quotes. */
@@ -36,6 +37,18 @@ object SparkTemplateFilters {
     fun shellQuote(value: String): String {
         require('\u0000' !in value) { "shell_quote value may not contain NUL bytes" }
         return "'" + value.replace("'", "'\\''") + "'"
+    }
+
+    /**
+     * A MAC address as 12 lowercase hex digits with no separators, the form udev
+     * uses in names like `enx001122aabbcc`. Accepts `:`, `-` or `.` separators.
+     */
+    fun macHex(value: String): String {
+        val hex = value.trim().lowercase().filterNot { it == ':' || it == '-' || it == '.' }
+        require(hex.length == 12 && hex.all { it in '0'..'9' || it in 'a'..'f' }) {
+            "Not a MAC address: $value"
+        }
+        return hex
     }
 
     /** TOML basic string, including the surrounding double quotes. */

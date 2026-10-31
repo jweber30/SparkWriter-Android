@@ -144,6 +144,8 @@ data class ConfigField(
     val default: String = "",
     val required: Boolean = false,
     val maxLength: Int? = null,
+    /** Regular expression a non-empty value must match in full. */
+    val pattern: String? = null,
     val description: String? = null,
     val placeholder: String? = null,
     val options: List<ConfigOption> = emptyList(),

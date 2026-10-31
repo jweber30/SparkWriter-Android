@@ -204,4 +204,5 @@
     <string name="sparkplug_source_url">SparkPlug 제공 주소</string>
     <string name="field_length_counter">%1$d / %2$d자</string>
     <string name="field_too_long">너무 깁니다: 최대 %1$d자입니다</string>
+    <string name="field_bad_format">형식이 올바르지 않습니다. 아래 예시를 참고하세요.</string>
 </resources>
