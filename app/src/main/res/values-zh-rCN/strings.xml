@@ -205,4 +205,9 @@
     <string name="return_required_write_ready">只有此回调成功后，写入才会开始。</string>
     <string name="saving_ellipsis">正在保存…</string>
     <string name="view_artifact">查看 %1$s</string>
+    <string name="draft_source_label">其他应用</string>
+    <string name="draft_opened">已打开 %1$s 的草稿。写入前请检查每个值。</string>
+    <string name="draft_values_skipped">未应用：%1$s</string>
+    <string name="draft_unknown_sparkplug">没有已安装的 SparkPlug 的 ID 为 %1$s</string>
+    <string name="draft_ignored_during_write">正在写入，已忽略配置草稿</string>
 </resources>

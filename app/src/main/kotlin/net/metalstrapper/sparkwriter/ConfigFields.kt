@@ -15,7 +15,7 @@ import java.util.TimeZone
 
 private const val DEFAULT_FIELD_PREFIX = "default."
 
-private fun String.toCanonicalFieldId(): String = removePrefix(DEFAULT_FIELD_PREFIX).replace('-', '_')
+internal fun String.toCanonicalFieldId(): String = removePrefix(DEFAULT_FIELD_PREFIX).replace('-', '_')
 
 internal fun ConfigField.formFieldId(): String = id.toCanonicalFieldId()
 
