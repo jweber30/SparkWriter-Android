@@ -87,7 +87,7 @@ internal suspend fun saveAssembledImage(
             },
             log = { message -> Log.d("SparkWriter", message) },
         )
-        context.openImportedImageInputStream(Uri.parse(request.image.provenance.ifBlank { request.image.uri })).use { input ->
+        context.openImportedImageInputStream(Uri.parse(request.image.uri)).use { input ->
             if (input == null) error("Image URI could not be opened")
             AssembledImageWriter.assemble(
                 source = input,

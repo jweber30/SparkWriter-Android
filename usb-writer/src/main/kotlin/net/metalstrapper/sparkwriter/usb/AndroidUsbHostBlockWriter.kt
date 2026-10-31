@@ -135,8 +135,9 @@ class AndroidUsbHostBlockWriter(
         validateWriteIntent(intent, probed)
         validateRoundedImageFits(intent.image.sizeBytes, probed)
 
-        context.contentResolver.openInputStream(Uri.parse(intent.image.uri)).use { image ->
-            if (image == null) throw WriteRefusedException("Image URI could not be opened")
+        val source = context.contentResolver.openInputStream(Uri.parse(intent.image.uri))
+            ?: throw WriteRefusedException("Image URI could not be opened")
+        approvedImageStream(source).use { image ->
             claimedSession(intent.deviceId).let { session ->
                 session.testUnitReady()
                 val blockSize = probed.blockSize
@@ -159,6 +160,9 @@ class AndroidUsbHostBlockWriter(
                     lba += transferBytes / blockSize
                     emit(WriteProgress(bytesWritten, intent.image.sizeBytes, "Writing image to USB"))
                 }
+                // The bytes are already on the device; a mismatch fails the write so the
+                // receipt never claims a source that was not the approved one.
+                requireApprovedDigest(image, intent.image)
             }
         }
     }.flowOn(Dispatchers.IO)
@@ -309,8 +313,9 @@ class AndroidUsbHostBlockWriter(
         validateWriteIntent(intent, probed)
         validateRoundedImageFits(intent.image.sizeBytes, probed)
 
-        context.contentResolver.openInputStream(Uri.parse(intent.image.uri)).use { image ->
-            if (image == null) throw WriteRefusedException("Image URI could not be opened")
+        val source = context.contentResolver.openInputStream(Uri.parse(intent.image.uri))
+            ?: throw WriteRefusedException("Image URI could not be opened")
+        approvedImageStream(source).use { image ->
             claimedSession(intent.deviceId).let { session ->
                 session.testUnitReady()
                 val blockSize = probed.blockSize
@@ -340,6 +345,8 @@ class AndroidUsbHostBlockWriter(
                     lba += transferBytes / blockSize
                     emit(VerifyProgress(bytesRead, intent.image.sizeBytes, "Verifying USB readback"))
                 }
+                // Readback matched the source, but the source itself must still be the approved image.
+                requireApprovedDigest(image, intent.image)
                 emit(
                     VerifyProgress(
                         bytesRead = intent.image.sizeBytes,

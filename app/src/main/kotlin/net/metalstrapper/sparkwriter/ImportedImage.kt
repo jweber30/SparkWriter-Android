@@ -116,8 +116,8 @@ internal fun Context.readImageRange(image: VerifiedImage, offset: Long, length: 
     if (offset < 0 || length < 0 || offset + length > image.sizeBytes) {
         error("Requested ISO byte range is outside the image")
     }
-    val uri = Uri.parse(image.provenance.ifBlank { image.uri })
-    openImportedImageInputStream(uri).use { input ->
+    // image.uri is the verified copy; provenance may name an external document whose bytes can change.
+    openImportedImageInputStream(Uri.parse(image.uri)).use { input ->
         if (input == null) error("Image URI could not be opened")
         var skipped = 0L
         while (skipped < offset) {

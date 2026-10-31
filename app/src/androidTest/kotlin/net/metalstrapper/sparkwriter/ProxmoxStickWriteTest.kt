@@ -61,7 +61,6 @@ class ProxmoxStickWriteTest {
             sha256 = sha256,
             sizeBytes = base.length(),
             mediaType = manifest.source!!.mediaType ?: "",
-            // readImageRange opens the provenance URI when it is set.
             provenance = uri,
             displayName = base.name,
         )
