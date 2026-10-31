@@ -204,4 +204,9 @@
     <string name="field_length_counter">%1$d / %2$d characters</string>
     <string name="field_too_long">Too long: the limit is %1$d characters</string>
     <string name="field_bad_format">Not in the expected format. See the example below.</string>
+    <string name="draft_source_label">another app</string>
+    <string name="draft_opened">Draft for %1$s opened. Check every value before writing.</string>
+    <string name="draft_values_skipped">Not applied: %1$s</string>
+    <string name="draft_unknown_sparkplug">No installed SparkPlug has the id %1$s</string>
+    <string name="draft_ignored_during_write">Ignored a config draft because a write is in progress</string>
 </resources>

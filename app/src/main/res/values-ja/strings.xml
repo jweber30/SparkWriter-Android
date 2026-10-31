@@ -205,4 +205,9 @@
     <string name="return_required_write_ready">このコールバックが成功しない限り、書き込みは開始されません。</string>
     <string name="saving_ellipsis">保存中…</string>
     <string name="view_artifact">%1$s を表示</string>
+    <string name="draft_source_label">別のアプリ</string>
+    <string name="draft_opened">%1$s の下書きを開きました。書き込む前にすべての値を確認してください。</string>
+    <string name="draft_values_skipped">適用されなかった値: %1$s</string>
+    <string name="draft_unknown_sparkplug">ID が %1$s の SparkPlug はインストールされていません</string>
+    <string name="draft_ignored_during_write">書き込み中のため、構成の下書きを無視しました</string>
 </resources>

@@ -204,4 +204,9 @@
     <string name="field_length_counter">%1$d / %2$d वर्ण</string>
     <string name="field_too_long">बहुत लंबा: सीमा %1$d वर्ण है</string>
     <string name="field_bad_format">प्रारूप सही नहीं है। नीचे दिया गया उदाहरण देखें।</string>
+    <string name="draft_source_label">किसी अन्य ऐप</string>
+    <string name="draft_opened">%1$s का ड्राफ़्ट खोला गया। लिखने से पहले हर मान जाँचें।</string>
+    <string name="draft_values_skipped">लागू नहीं किया गया: %1$s</string>
+    <string name="draft_unknown_sparkplug">%1$s आईडी वाला कोई SparkPlug इंस्टॉल नहीं है</string>
+    <string name="draft_ignored_during_write">लेखन जारी होने के कारण कॉन्फ़िगरेशन ड्राफ़्ट को अनदेखा किया गया</string>
 </resources>

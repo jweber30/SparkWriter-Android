@@ -98,6 +98,7 @@ class MainActivity : ComponentActivity() {
     private val usbWriter by lazy { AndroidUsbHostBlockWriter(this) }
     private val pendingManifestInstall = mutableStateOf<ManifestInstallRequest?>(null)
     private val pendingImageImport = mutableStateOf<PendingImageImport?>(null)
+    private val pendingConfigDraft = mutableStateOf<PendingConfigDraft?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,13 +106,16 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
         )
-        handleIncomingIntent(intent)
+        // A restored activity still holds its launch intent; replaying a draft would
+        // overwrite whatever the user changed since it first arrived.
+        handleIncomingIntent(intent, restoring = savedInstanceState != null)
         setContent {
             SparkWriterApp(
                 runtime = runtime,
                 usbWriter = usbWriter,
                 manifestInstallRequest = pendingManifestInstall.value,
                 pendingImageImport = pendingImageImport.value,
+                pendingConfigDraft = pendingConfigDraft.value,
             )
         }
     }
@@ -131,10 +135,19 @@ class MainActivity : ComponentActivity() {
         handleIncomingIntent(intent)
     }
 
-    private fun handleIncomingIntent(intent: Intent?) {
+    private fun handleIncomingIntent(intent: Intent?, restoring: Boolean = false) {
         val rawUri = intent?.dataString
-        Log.d("SparkWriter", "Received intent action=${intent?.action} data=$rawUri")
-        val manifestUrl = rawUri?.let(runtime::parseSparkUri)
+        val draft = rawUri?.takeIf { intent.action == Intent.ACTION_VIEW }?.let(::parseDraftUri)
+        // Draft values are config (addresses, keys, commands); keep them out of logcat.
+        Log.d("SparkWriter", "Received intent action=${intent?.action} data=${if (draft != null) "spark://draft?…" else rawUri}")
+        if (draft != null) {
+            if (!restoring) {
+                Log.d("SparkWriter", "Received config draft for ${draft.manifestId} with ${draft.values.size} values")
+                pendingConfigDraft.value = PendingConfigDraft(draft, System.nanoTime())
+            }
+            return
+        }
+        val manifestUrl = rawUri?.let { runCatching { runtime.parseSparkUri(it) }.getOrNull() }
         if (manifestUrl != null) {
             Log.d("SparkWriter", "Parsed Spark manifest URL: $manifestUrl")
             pendingManifestInstall.value = ManifestInstallRequest(manifestUrl, System.nanoTime())
@@ -184,6 +197,11 @@ data class PendingImageImport(
     val manifestId: String? = null,
 )
 
+data class PendingConfigDraft(
+    val request: ConfigDraftRequest,
+    val nonce: Long,
+)
+
 data class ManifestInstallRequest(
     val manifestUrl: String,
     val nonce: Long,
@@ -230,6 +248,7 @@ fun SparkWriterApp(
     usbWriter: UsbBlockWriter,
     manifestInstallRequest: ManifestInstallRequest?,
     pendingImageImport: PendingImageImport?,
+    pendingConfigDraft: PendingConfigDraft? = null,
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboard.current
@@ -261,6 +280,9 @@ fun SparkWriterApp(
     var handledManifestInstallNonce by rememberSaveable { mutableStateOf<Long?>(null) }
     var approvedManifestInstallNonce by remember { mutableStateOf<Long?>(null) }
     var generatedSecrets by remember { mutableStateOf(emptyMap<String, String>()) }
+    var installedManifestsLoaded by remember { mutableStateOf(false) }
+    var appliedConfigDraft by remember { mutableStateOf<AppliedConfigDraft?>(null) }
+    var handledConfigDraftNonce by rememberSaveable { mutableStateOf<Long?>(null) }
     val manifestInstallInProgress = manifestInstallRequest != null &&
         handledManifestInstallNonce != manifestInstallRequest.nonce
     val scope = rememberCoroutineScope()
@@ -397,6 +419,7 @@ fun SparkWriterApp(
             manifests = (bundledManifests + installed + manifests)
                 .distinctBy { it.metadata.id }
         }
+        installedManifestsLoaded = true
         runCatching {
             withContext(Dispatchers.IO) {
                 isoIndexStore.refreshDeclared((bundledManifests + installed + manifests).distinctBy { it.metadata.id })
@@ -404,6 +427,39 @@ fun SparkWriterApp(
         }.onFailure { error ->
             Log.w("SparkWriter", "ISO index refresh failed", error)
         }
+    }
+
+    // Waits for installed SparkPlugs so a draft that cold-starts the app is not
+    // refused for a plug that simply has not loaded yet.
+    LaunchedEffect(pendingConfigDraft?.nonce, installedManifestsLoaded) {
+        val pending = pendingConfigDraft ?: return@LaunchedEffect
+        if (!installedManifestsLoaded || handledConfigDraftNonce == pending.nonce) return@LaunchedEffect
+        handledConfigDraftNonce = pending.nonce
+        if (writeInProgress) {
+            status = context.getString(R.string.draft_ignored_during_write)
+            return@LaunchedEffect
+        }
+        val manifest = offeredManifests.firstOrNull { it.metadata.id == pending.request.manifestId }
+        if (manifest == null) {
+            status = context.getString(R.string.draft_unknown_sparkplug, pending.request.manifestId)
+            return@LaunchedEffect
+        }
+        val validation = manifest.validateDraft(pending.request.values)
+        if (selectedManifestId != manifest.metadata.id) {
+            importedImage = null
+            importedImageMatches = null
+            selectedManifestId = manifest.metadata.id
+        }
+        appliedConfigDraft = AppliedConfigDraft(manifest.metadata.id, validation.accepted, pending.nonce)
+        currentRoute = SparkWriterRoute.Workflow
+        status = buildString {
+            append(context.getString(R.string.draft_opened, manifest.metadata.name))
+            if (validation.issues.isNotEmpty()) {
+                append(' ')
+                append(context.getString(R.string.draft_values_skipped, validation.issues.joinToString { it.message }))
+            }
+        }
+        Log.d("SparkWriter", "Applied draft for ${manifest.metadata.id}: accepted=${validation.accepted.keys} issues=${validation.issues.map { it.fieldId to it.code }}")
     }
 
     LaunchedEffect(selectedManifest?.metadata?.id) {
@@ -590,6 +646,7 @@ fun SparkWriterApp(
                 importedImage = importedImage,
                 generatedSecrets = generatedSecrets,
                 onGeneratedSecrets = { generatedSecrets = it },
+                draft = appliedConfigDraft,
                 usbWriter = usbWriter,
                 isoIndexStore = isoIndexStore,
                 status = status,

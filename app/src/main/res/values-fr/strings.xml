@@ -204,4 +204,9 @@
     <string name="field_length_counter">%1$d / %2$d caractères</string>
     <string name="field_too_long">Trop long : la limite est de %1$d caractères</string>
     <string name="field_bad_format">Format incorrect. Voir l’exemple ci-dessous.</string>
+    <string name="draft_source_label">une autre application</string>
+    <string name="draft_opened">Brouillon pour %1$s ouvert. Vérifiez chaque valeur avant l\'écriture.</string>
+    <string name="draft_values_skipped">Non appliqué\u00A0: %1$s</string>
+    <string name="draft_unknown_sparkplug">Aucun SparkPlug installé n\'a l\'identifiant %1$s</string>
+    <string name="draft_ignored_during_write">Brouillon de configuration ignoré, car une écriture est en cours</string>
 </resources>

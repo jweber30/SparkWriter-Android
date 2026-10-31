@@ -29,6 +29,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="spark" android:host="plugin" android:path="/add" />
             </intent-filter>
+            <!-- Config drafts from other apps and assistants. Deliberately not BROWSABLE:
+                 a web page must not be able to fill in an installer config. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="spark" android:host="draft" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
