@@ -2,6 +2,9 @@
 .gradle/
 **/build/
 
+keystore.properties
+*.jks
+
 # Generated / IDE output
 **/bin/
 tools/.qemu-proxmox-smoke/
