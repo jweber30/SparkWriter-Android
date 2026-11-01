@@ -3,7 +3,7 @@ name: Build Proxmox MetalStrap
 # Builds the MetalStrapper Proxmox VE ISO with two reserved slots (answer.toml and
 # proxmox-first-boot), generates its SparkPlug image document, checks that document
 # against the SparkPlugs that use it, and publishes both as a GitHub release.
-# Recipe: metalstrap/proxmox-generic-netboot. Tool: tools/metalstrap.py.
+# Recipe: metalstrap/proxmox-generic. Tool: tools/metalstrap.py.
 
 on:
   workflow_dispatch:
@@ -28,8 +28,8 @@ concurrency:
   group: build-proxmox-metalstrap
 
 env:
-  RECIPE: metalstrap/proxmox-generic-netboot
-  IMAGE_DOC: metalstrapper-proxmox-generic-netboot.image.yaml
+  RECIPE: metalstrap/proxmox-generic
+  IMAGE_DOC: metalstrapper-proxmox-generic.image.yaml
 
 jobs:
   build:

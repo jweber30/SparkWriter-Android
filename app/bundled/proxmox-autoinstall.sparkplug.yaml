@@ -5,9 +5,9 @@ metadata:
   name: Proxmox VE
   version: "0.1.0"
   author: MetalStrapper
-  description: Patch the MetalStrapper generic Proxmox netboot ISO with a generated answer file and a local first-boot script. No external services.
+  description: Patch the MetalStrapper generic Proxmox ISO with a generated answer file and a local first-boot script. No external services.
 
-image: metalstrapper-proxmox-generic-netboot
+image: metalstrapper-proxmox-generic
 fill:
   answer_toml: answer_toml
   firstboot_script: firstboot_script

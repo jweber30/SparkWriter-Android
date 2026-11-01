@@ -46,6 +46,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -640,6 +642,7 @@ fun SparkWriterApp(
             }
             currentRoute = SparkWriterRoute.Workflow
         }
+        val workflowFormStates = remember { mutableMapOf<String, WorkflowFormState>() }
         val workflowDetail: @Composable (Modifier) -> Unit = { detailModifier ->
             WorkflowPane(
                 sourceManifest = selectedManifest ?: rawImageManifest,
@@ -647,6 +650,7 @@ fun SparkWriterApp(
                 generatedSecrets = generatedSecrets,
                 onGeneratedSecrets = { generatedSecrets = it },
                 draft = appliedConfigDraft,
+                formStates = workflowFormStates,
                 usbWriter = usbWriter,
                 isoIndexStore = isoIndexStore,
                 status = status,
@@ -676,6 +680,12 @@ fun SparkWriterApp(
                 modifier = detailModifier,
             )
         }
+        // Rotating can switch layouts (bottom bar vs. side-by-side), which would otherwise rebuild
+        // the pane and discard the in-progress form. Movable content carries its state across.
+        val currentWorkflowDetail by rememberUpdatedState(workflowDetail)
+        val movableWorkflowDetail = remember {
+            movableContentOf { detailModifier: Modifier -> currentWorkflowDetail(detailModifier) }
+        }
         val workflowScreen: @Composable (Boolean) -> Unit = { showSourceList ->
             if (showSourceList) {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -692,14 +702,14 @@ fun SparkWriterApp(
                                     .fillMaxHeight()
                                     .width(sourcePaneWidth),
                             )
-                            workflowDetail(Modifier.weight(1f).fillMaxSize())
+                            movableWorkflowDetail(Modifier.weight(1f).fillMaxSize())
                         }
                     } else {
-                        workflowDetail(Modifier.fillMaxSize())
+                        movableWorkflowDetail(Modifier.fillMaxSize())
                     }
                 }
             } else {
-                workflowDetail(Modifier.fillMaxSize())
+                movableWorkflowDetail(Modifier.fillMaxSize())
             }
         }
         val writeHeaderText = when {

@@ -1,5 +1,5 @@
 {
-  "id": "metalstrapper-proxmox-generic-netboot",
+  "id": "metalstrapper-proxmox-generic",
   "image_template": "image.yaml.in",
   "padding": "#",
   "slots": [

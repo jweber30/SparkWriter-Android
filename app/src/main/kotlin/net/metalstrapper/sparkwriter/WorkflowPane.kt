@@ -80,6 +80,18 @@ import net.metalstrapper.sparkwriter.storage.ProfileStore
 import net.metalstrapper.sparkwriter.usb.UsbBlockWriter
 import java.util.Locale
 
+/**
+ * Form state for one sparkplug, held above [WorkflowPane] so it survives the pane leaving
+ * composition (bottom-bar tab switches, layout changes on rotation).
+ */
+internal class WorkflowFormState {
+    val values = mutableStateMapOf<String, String>()
+    val prefillProvenance = mutableStateMapOf<String, PrefillProvenance>()
+    val prefillReadOnlyFields = mutableStateMapOf<String, Boolean>()
+    var configPageIndex by mutableStateOf(0)
+    var appliedDraftNonce: Long? = null
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WorkflowPane(
@@ -88,6 +100,7 @@ internal fun WorkflowPane(
     generatedSecrets: Map<String, String>,
     onGeneratedSecrets: (Map<String, String>) -> Unit,
     draft: AppliedConfigDraft?,
+    formStates: MutableMap<String, WorkflowFormState>,
     usbWriter: UsbBlockWriter,
     isoIndexStore: IsoIndexStore,
     status: String,
@@ -109,7 +122,8 @@ internal fun WorkflowPane(
     }
     val clipboard = LocalClipboard.current
     val profileStore = remember(context) { ProfileStore(context.applicationContext) }
-    val values = remember(manifest.metadata.id) { mutableStateMapOf<String, String>() }
+    val formState = formStates.getOrPut(manifest.metadata.id) { WorkflowFormState() }
+    val values = formState.values
     val scope = rememberCoroutineScope()
     var devices by remember { mutableStateOf<List<DeviceRef>>(emptyList()) }
     var devicePermissionById by remember { mutableStateOf(emptyMap<String, Boolean>()) }
@@ -121,7 +135,7 @@ internal fun WorkflowPane(
     var pendingAssembledImageSave by remember { mutableStateOf<PendingAssembledImageSave?>(null) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var progressText by remember { mutableStateOf<String?>(null) }
-    var configPageIndex by rememberSaveable(manifest.metadata.id) { mutableStateOf(0) }
+    var configPageIndex by formState::configPageIndex
     // Passwords shown on the review step that the next write or save will use.
     var pendingSecrets by remember(manifest.metadata.id) { mutableStateOf<List<GeneratedUserSecret>?>(null) }
     val manifestAcquisition = remember(manifest.metadata.id, manifest.source) {
@@ -306,14 +320,16 @@ internal fun WorkflowPane(
     var focusPageHeading by remember(manifest.metadata.id) { mutableStateOf(false) }
     val profileFillValues = remember(manifest.metadata.id) { mutableStateMapOf<String, String>() }
     val fetchingFields = remember(manifest.metadata.id) { mutableStateMapOf<String, Boolean>() }
-    val prefillProvenance = remember(manifest.metadata.id) { mutableStateMapOf<String, PrefillProvenance>() }
-    val prefillReadOnlyFields = remember(manifest.metadata.id) { mutableStateMapOf<String, Boolean>() }
+    val prefillProvenance = formState.prefillProvenance
+    val prefillReadOnlyFields = formState.prefillReadOnlyFields
     val fetchingPrefillButtons = remember(manifest.metadata.id) { mutableStateMapOf<String, Boolean>() }
 
     // Runs after the defaults effect above (effects launch in composition order), so a
     // draft value replaces a default. Profile suggestions stay suggestions.
     LaunchedEffect(manifest.metadata.id, draft?.nonce) {
         val applied = draft?.takeIf { it.manifestId == manifest.metadata.id } ?: return@LaunchedEffect
+        if (formState.appliedDraftNonce == applied.nonce) return@LaunchedEffect
+        formState.appliedDraftNonce = applied.nonce
         val draftProvenance = PrefillProvenance(
             kind = PrefillSourceKind.Draft,
             id = "draft",

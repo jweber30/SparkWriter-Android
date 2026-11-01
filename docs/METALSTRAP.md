@@ -22,12 +22,12 @@ The image document is the hand-off point:
 - **Stock images** (Ubuntu, Debian from upstream): the image document is
   hand-written. SparkWriter applies its fixed-size boot-config text
   replacements and auxiliary partition on the device. No MetalStrap is needed.
-- **Custom images** (the Proxmox netboot ISO): a MetalStrap build on Linux
+- **Custom images** (the Proxmox generic ISO): a MetalStrap build on Linux
   makes the image and generates its image document, including slot offsets.
   See "Proxmox MetalStrap build" below.
 
 One image document can serve many workflows. The bundled Proxmox SparkPlug uses
-`metalstrapper-proxmox-generic-netboot.image.yaml`.
+`metalstrapper-proxmox-generic.image.yaml`.
 
 ## Goals
 
@@ -57,7 +57,7 @@ One image document can serve many workflows. The bundled Proxmox SparkPlug uses
 
 ## Proxmox MetalStrap build
 
-- **Recipe:** `metalstrap/proxmox-generic-netboot/` holds `metalstrap.json`
+- **Recipe:** `metalstrap/proxmox-generic/` holds `metalstrap.json`
   (slot ids, ISO paths, sizes), the two placeholder files, and the image
   document template `image.yaml.in`.
 - **Tool:** `tools/metalstrap.py` (Python standard library plus `xorriso`).

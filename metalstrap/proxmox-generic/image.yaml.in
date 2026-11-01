@@ -3,15 +3,15 @@
 version: "3.0"
 kind: sparkplug.image
 metadata:
-  id: metalstrapper-proxmox-generic-netboot
+  id: metalstrapper-proxmox-generic
   name: MetalStrapper Proxmox generic ISO
   version: "${image_version}"
   author: MetalStrapper
   description: ${image_description}
 
 source:
-  id: metalstrapper-proxmox-generic-netboot
-  name: MetalStrapper Proxmox generic netboot ISO
+  id: metalstrapper-proxmox-generic
+  name: MetalStrapper Proxmox generic ISO
   family: proxmox
   media_type: application/vnd.efi.iso
   url: ${iso_url}

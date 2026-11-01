@@ -16,7 +16,7 @@ class BundledManifestPairingTest {
         val manifests = pairBundledManifests(runtime, workflows(), images())
 
         assertEquals(listOf("proxmox-autoinstall"), manifests.map { it.metadata.id })
-        assertEquals("metalstrapper-proxmox-generic-netboot", manifests.single().source?.id)
+        assertEquals("metalstrapper-proxmox-generic", manifests.single().source?.id)
         assertEquals("bundled:proxmox-autoinstall.sparkplug.yaml", manifests.single().installOrigin)
     }
 
@@ -26,7 +26,7 @@ class BundledManifestPairingTest {
             pairBundledManifests(runtime, workflows(), images = emptyMap())
         }
         assertEquals(
-            "Bundled workflow proxmox-autoinstall.sparkplug.yaml needs missing image metalstrapper-proxmox-generic-netboot",
+            "Bundled workflow proxmox-autoinstall.sparkplug.yaml needs missing image metalstrapper-proxmox-generic",
             error.message,
         )
     }
