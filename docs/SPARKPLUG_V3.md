@@ -127,7 +127,7 @@ findings are pattern matches to help a person review, not a sandbox.
 ### Local ZIP Import (development)
 
 Turn on **Settings → Allow local ZIP import**. A **Local ZIP** button then
-appears on the Sources screen and opens the system file picker.
+appears on the SparkPlugs screen and opens the system file picker.
 
 - The selected file is copied to app cache, capped at 100 KiB, and the copy is
   deleted after inspection. Nothing is extracted to disk.

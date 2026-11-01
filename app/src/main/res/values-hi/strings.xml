@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">SparkWriter</string>
-    <string name="nav_sources">स्रोत</string>
+    <string name="nav_sources">SparkPlugs</string>
     <string name="ungrouped">बिना समूह के</string>
     <string name="add_to_group">समूह में जोड़ें</string>
     <string name="local_zip">स्थानीय ZIP</string>
@@ -51,7 +51,6 @@
     <string name="back">वापस</string>
     <string name="show">दिखाएं</string>
     <string name="hide">छिपाएं</string>
-    <string name="more">और</string>
     <string name="importing_manifest">मैनिफ़ेस्ट आयात किया जा रहा है</string>
     <string name="imported_manifest">%1$s आयात किया गया</string>
     <string name="manifest_import_failed">मैनिफ़ेस्ट आयात विफल रहा</string>
@@ -244,4 +243,7 @@
     <string name="draft_values_skipped">लागू नहीं किया गया: %1$s</string>
     <string name="draft_unknown_sparkplug">%1$s आईडी वाला कोई SparkPlug इंस्टॉल नहीं है</string>
     <string name="draft_ignored_during_write">लेखन जारी होने के कारण कॉन्फ़िगरेशन ड्राफ़्ट को अनदेखा किया गया</string>
+    <string name="expand_group">समूह फैलाएँ</string>
+    <string name="collapse_group">समूह समेटें</string>
+    <string name="drag_to_move_group">दूसरे समूह में ले जाने के लिए खींचें, या चुनने के लिए टैप करें</string>
 </resources>

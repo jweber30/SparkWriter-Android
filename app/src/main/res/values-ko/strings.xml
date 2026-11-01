@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SparkWriter</string>
-    <string name="nav_sources">소스</string>
+    <string name="nav_sources">SparkPlugs</string>
     <string name="ungrouped">그룹 없음</string>
     <string name="add_to_group">그룹에 추가</string>
     <string name="local_zip">기기 내 ZIP</string>
@@ -94,7 +94,6 @@
     <string name="sha256_value">SHA-256 %1$s</string>
     <string name="open_download">다운로드 열기</string>
     <string name="erase_selected_usb_confirmation">선택한 USB 장치의 모든 내용이 지워짐을 이해했습니다.</string>
-    <string name="more">더보기</string>
     <string name="move_to_group">그룹으로 이동</string>
     <string name="view_artifact">%1$s 보기</string>
     <string name="artifact_details">생성물 정보</string>
@@ -245,4 +244,7 @@
     <string name="draft_values_skipped">적용되지 않음: %1$s</string>
     <string name="draft_unknown_sparkplug">ID가 %1$s인 SparkPlug가 설치되어 있지 않습니다</string>
     <string name="draft_ignored_during_write">쓰기가 진행 중이어서 구성 초안을 무시했습니다</string>
+    <string name="expand_group">그룹 펼치기</string>
+    <string name="collapse_group">그룹 접기</string>
+    <string name="drag_to_move_group">끌어서 다른 그룹으로 이동하거나 탭하여 선택</string>
 </resources>

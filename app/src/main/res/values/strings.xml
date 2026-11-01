@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">SparkWriter</string>
-    <string name="nav_sources">Sources</string>
+    <string name="nav_sources">SparkPlugs</string>
     <string name="ungrouped">Ungrouped</string>
     <string name="add_to_group">Add to group</string>
     <string name="local_zip">Local ZIP</string>
@@ -93,7 +93,6 @@
     <string name="sha256_value">SHA-256 %1$s</string>
     <string name="open_download">Open Download</string>
     <string name="erase_selected_usb_confirmation">I understand all data on the selected USB device will be permanently erased.</string>
-    <string name="more">More</string>
     <string name="move_to_group">Move to group</string>
     <string name="view_artifact">View %1$s</string>
     <string name="artifact_details">Artifact details</string>
@@ -244,4 +243,7 @@
     <string name="draft_values_skipped">Not applied: %1$s</string>
     <string name="draft_unknown_sparkplug">No installed SparkPlug has the id %1$s</string>
     <string name="draft_ignored_during_write">Ignored a config draft because a write is in progress</string>
+    <string name="expand_group">Expand group</string>
+    <string name="collapse_group">Collapse group</string>
+    <string name="drag_to_move_group">Drag to move to another group, or tap to choose</string>
 </resources>

@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">SparkWriter</string>
-    <string name="nav_sources">Fuentes</string>
+    <string name="nav_sources">SparkPlugs</string>
     <string name="ungrouped">Sin agrupar</string>
     <string name="add_to_group">Añadir al grupo</string>
     <string name="local_zip">ZIP local</string>
@@ -93,7 +93,6 @@
     <string name="sha256_value">SHA-256 %1$s</string>
     <string name="open_download">Abrir descarga</string>
     <string name="erase_selected_usb_confirmation">Entiendo que esto borrará el dispositivo USB seleccionado.</string>
-    <string name="more">Más</string>
     <string name="move_to_group">Mover al grupo</string>
     <string name="view_artifact">Ver %1$s</string>
     <string name="artifact_details">Detalles del artefacto</string>
@@ -244,4 +243,7 @@
     <string name="draft_values_skipped">No aplicado: %1$s</string>
     <string name="draft_unknown_sparkplug">Ningún SparkPlug instalado tiene el id %1$s</string>
     <string name="draft_ignored_during_write">Se ignoró un borrador de configuración porque hay una escritura en curso</string>
+    <string name="expand_group">Expandir grupo</string>
+    <string name="collapse_group">Contraer grupo</string>
+    <string name="drag_to_move_group">Arrastra para mover a otro grupo, o toca para elegir</string>
 </resources>

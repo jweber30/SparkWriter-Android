@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">SparkWriter</string>
-    <string name="nav_sources">Sources</string>
+    <string name="nav_sources">SparkPlugs</string>
     <string name="ungrouped">Non groupés</string>
     <string name="add_to_group">Ajouter au groupe</string>
     <string name="local_zip">ZIP local</string>
@@ -61,7 +61,6 @@
     <string name="profile_settings_cleared">Paramètres du profil effacés</string>
     <string name="profile_settings_clear_failed">Échec de l\'effacement des paramètres\u00A0: %1$s</string>
     <string name="erase_selected_usb_confirmation">Je comprends que cela effacera le périphérique USB sélectionné.</string>
-    <string name="more">Plus</string>
     <string name="move_to_group">Déplacer vers le groupe</string>
     <string name="view_artifact">Voir %1$s</string>
     <string name="artifact_details">Détails de l\'élément</string>
@@ -244,4 +243,7 @@
     <string name="draft_values_skipped">Non appliqué\u00A0: %1$s</string>
     <string name="draft_unknown_sparkplug">Aucun SparkPlug installé n\'a l\'identifiant %1$s</string>
     <string name="draft_ignored_during_write">Brouillon de configuration ignoré, car une écriture est en cours</string>
+    <string name="expand_group">Développer le groupe</string>
+    <string name="collapse_group">Réduire le groupe</string>
+    <string name="drag_to_move_group">Faites glisser pour déplacer vers un autre groupe, ou touchez pour choisir</string>
 </resources>

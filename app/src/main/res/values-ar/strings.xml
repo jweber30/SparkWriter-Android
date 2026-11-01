@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">SparkWriter</string>
-    <string name="nav_sources">المصادر</string>
+    <string name="nav_sources">SparkPlugs</string>
     <string name="ungrouped">غير مجمّعة</string>
     <string name="add_to_group">إضافة إلى المجموعة</string>
     <string name="local_zip">ملف ZIP محلي</string>
@@ -67,7 +67,6 @@
     <string name="profile_settings_cleared">تم مسح إعدادات الملف الشخصي</string>
     <string name="profile_settings_clear_failed">تعذّر مسح الإعدادات: %1$s</string>
     <string name="erase_selected_usb_confirmation">أفهم أن هذا سيمسح جهاز USB المحدد.</string>
-    <string name="more">المزيد</string>
     <string name="move_to_group">نقل إلى مجموعة</string>
     <string name="view_artifact">عرض %1$s</string>
     <string name="artifact_details">تفاصيل العنصر</string>
@@ -244,4 +243,7 @@
     <string name="draft_values_skipped">لم يُطبَّق: %1$s</string>
     <string name="draft_unknown_sparkplug">لا يوجد SparkPlug مثبّت بالمعرّف %1$s</string>
     <string name="draft_ignored_during_write">تم تجاهل مسودة الإعداد لأن عملية كتابة قيد التنفيذ</string>
+    <string name="expand_group">توسيع المجموعة</string>
+    <string name="collapse_group">طي المجموعة</string>
+    <string name="drag_to_move_group">اسحب للنقل إلى مجموعة أخرى أو اضغط للاختيار</string>
 </resources>

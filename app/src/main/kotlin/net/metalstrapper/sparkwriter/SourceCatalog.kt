@@ -3,7 +3,8 @@ package net.metalstrapper.sparkwriter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,17 +14,21 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
@@ -38,7 +43,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.launch
 import net.metalstrapper.sparkwriter.core.SparkManifest
 import net.metalstrapper.sparkwriter.core.VerifiedImage
@@ -62,7 +72,8 @@ internal fun SourceCatalog(
     var newGroupName by remember { mutableStateOf("") }
     var draggedManifestId by remember { mutableStateOf<String?>(null) }
     var dragPosition by remember { mutableStateOf(Offset.Unspecified) }
-    val dropTargets = remember { mutableStateMapOf<String?, Rect>() }
+    val dropTargets = remember { mutableStateMapOf<String, DropZone>() }
+    var collapsedGroupIds by rememberSaveable { mutableStateOf(listOf<String>()) }
     var deletingGroupId by remember { mutableStateOf<String?>(null) }
     var movingManifestId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(groupStore) { groupStore.observe().collect { grouping = it } }
@@ -153,88 +164,132 @@ internal fun SourceCatalog(
                 Button(onClick = { creatingGroup = true }) { Text(stringResource(R.string.new_group)) }
             }
         }
-        fun androidx.compose.foundation.lazy.LazyListScope.manifestCards(items: List<SparkManifest>) {
+        fun androidx.compose.foundation.lazy.LazyListScope.manifestCards(items: List<SparkManifest>, groupId: String?) {
             items(items, key = { it.metadata.id }) { manifest ->
-            var cardBounds by remember { mutableStateOf(Rect.Zero) }
-            var cardDragOffset by remember { mutableStateOf(Offset.Zero) }
-            Card(
-                onClick = { onSelect(manifest) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .zIndex(if (draggedManifestId == manifest.metadata.id) 1f else 0f)
-                    .graphicsLayer {
-                        translationX = cardDragOffset.x
-                        translationY = cardDragOffset.y
-                        alpha = if (draggedManifestId == manifest.metadata.id) 0.85f else 1f
-                    }
-                    .onGloballyPositioned { cardBounds = it.boundsInRoot() }
-                    .pointerInput(manifest.metadata.id, dropTargets) {
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = { localOffset ->
-                                draggedManifestId = manifest.metadata.id
-                                dragPosition = cardBounds.topLeft + localOffset
-                            },
-                            onDrag = { change, amount ->
-                                change.consume()
-                                dragPosition += amount
-                                cardDragOffset += amount
-                            },
-                            onDragCancel = {
-                                draggedManifestId = null
-                                dragPosition = Offset.Unspecified
-                                cardDragOffset = Offset.Zero
-                            },
-                            onDragEnd = {
-                                val targetId = dropTargets.entries
-                                    .firstOrNull { (_, bounds) -> dragPosition in bounds }
-                                    ?.key
-                                if (targetId != null || dropTargets[null]?.contains(dragPosition) == true) {
-                                    scope.launch { groupStore.assign(manifest.metadata.id, targetId) }
-                                }
-                                draggedManifestId = null
-                                dragPosition = Offset.Unspecified
-                                cardDragOffset = Offset.Zero
-                            },
-                        )
-                    },
-            ) {
-                Column(Modifier.padding(12.dp)) {
-                    Text(manifest.metadata.name, fontWeight = FontWeight.SemiBold)
-                    TextButton(onClick = { movingManifestId = manifest.metadata.id }) {
-                        Text(stringResource(R.string.more))
+                val manifestId = manifest.metadata.id
+                var cardBounds by remember { mutableStateOf(Rect.Zero) }
+                var handleBounds by remember { mutableStateOf(Rect.Zero) }
+                var cardDragOffset by remember { mutableStateOf(Offset.Zero) }
+                DisposableEffect(manifestId) { onDispose { dropTargets.remove("card:$manifestId") } }
+                Card(
+                    onClick = { onSelect(manifest) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .zIndex(if (draggedManifestId == manifestId) 1f else 0f)
+                        .graphicsLayer {
+                            translationX = cardDragOffset.x
+                            translationY = cardDragOffset.y
+                            alpha = if (draggedManifestId == manifestId) 0.85f else 1f
+                        }
+                        .onGloballyPositioned {
+                            cardBounds = it.boundsInRoot()
+                            if (draggedManifestId != manifestId) dropTargets["card:$manifestId"] = DropZone(groupId, cardBounds)
+                        },
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp, end = 12.dp)) {
+                        val handleLabel = stringResource(R.string.drag_to_move_group)
+                        IconButton(
+                            onClick = { movingManifestId = manifestId },
+                            modifier = Modifier
+                                .onGloballyPositioned { handleBounds = it.boundsInRoot() }
+                                .semantics { contentDescription = handleLabel }
+                                .pointerInput(manifestId) {
+                                    detectDragGestures(
+                                        onDragStart = { localOffset ->
+                                            draggedManifestId = manifestId
+                                            dragPosition = handleBounds.topLeft + localOffset
+                                        },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            dragPosition += amount
+                                            cardDragOffset += amount
+                                        },
+                                        onDragCancel = {
+                                            draggedManifestId = null
+                                            dragPosition = Offset.Unspecified
+                                            cardDragOffset = Offset.Zero
+                                        },
+                                        onDragEnd = {
+                                            val target = dropTargets.entries
+                                                .firstOrNull { (key, zone) -> key != "card:$manifestId" && dragPosition in zone.bounds }
+                                                ?.value
+                                            if (target != null && target.groupId != groupId) {
+                                                scope.launch { groupStore.assign(manifestId, target.groupId) }
+                                                target.groupId?.let { collapsedGroupIds = collapsedGroupIds - it }
+                                            }
+                                            draggedManifestId = null
+                                            dragPosition = Offset.Unspecified
+                                            cardDragOffset = Offset.Zero
+                                        },
+                                    )
+                                },
+                        ) {
+                            Icon(Icons.Filled.Menu, contentDescription = null)
+                        }
+                        Text(manifest.metadata.name, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                     }
                 }
-            }
             }
         }
         grouping.groups.forEach { group ->
             val members = groupedManifests[group.id].orEmpty()
+            val expanded = group.id !in collapsedGroupIds
             item(key = "group-${group.id}") {
+                DisposableEffect(group.id) { onDispose { dropTargets.remove("header:${group.id}") } }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.onGloballyPositioned { dropTargets[group.id] = it.boundsInRoot() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { dropTargets["header:${group.id}"] = DropZone(group.id, it.boundsInRoot()) }
+                        .clickable { collapsedGroupIds = if (expanded) collapsedGroupIds + group.id else collapsedGroupIds - group.id },
                 ) {
-                    Text(group.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Icon(
+                        if (expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(if (expanded) R.string.collapse_group else R.string.expand_group),
+                    )
+                    Text(
+                        "${group.name} (${members.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f).padding(start = 4.dp),
+                    )
                     TextButton(onClick = { deletingGroupId = group.id }) { Text(stringResource(R.string.delete)) }
                 }
             }
-            manifestCards(members)
+            if (expanded) manifestCards(members, group.id)
         }
         val ungrouped = groupedManifests[null].orEmpty()
+        val ungroupedExpanded = UNGROUPED_KEY !in collapsedGroupIds
         item(key = "ungrouped") {
-            Text(
-                stringResource(R.string.ungrouped),
-                style = MaterialTheme.typography.titleMedium,
+            DisposableEffect(Unit) { onDispose { dropTargets.remove("header:") } }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .onGloballyPositioned { dropTargets[null] = it.boundsInRoot() },
-            )
+                    .onGloballyPositioned { dropTargets["header:"] = DropZone(null, it.boundsInRoot()) }
+                    .clickable {
+                        collapsedGroupIds = if (ungroupedExpanded) collapsedGroupIds + UNGROUPED_KEY else collapsedGroupIds - UNGROUPED_KEY
+                    },
+            ) {
+                Icon(
+                    if (ungroupedExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(if (ungroupedExpanded) R.string.collapse_group else R.string.expand_group),
+                )
+                Text(
+                    "${stringResource(R.string.ungrouped)} (${ungrouped.size})",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+            }
         }
-        if (ungrouped.isNotEmpty()) {
-            manifestCards(ungrouped)
+        if (ungroupedExpanded && ungrouped.isNotEmpty()) {
+            manifestCards(ungrouped, null)
         }
     }
 }
+
+private const val UNGROUPED_KEY = "\u0000ungrouped"
+
+private data class DropZone(val groupId: String?, val bounds: Rect)
 
 @Composable
 internal fun SourceDetailsDialog(

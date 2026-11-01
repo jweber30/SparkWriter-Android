@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SparkWriter</string>
-    <string name="nav_sources">ソース</string>
+    <string name="nav_sources">SparkPlugs</string>
     <string name="ungrouped">未グループ化</string>
     <string name="add_to_group">グループに追加</string>
     <string name="local_zip">ローカル ZIP</string>
@@ -34,7 +34,6 @@
     <string name="back">戻る</string>
     <string name="show">表示</string>
     <string name="hide">非表示</string>
-    <string name="more">その他</string>
     <string name="continue_label">続行</string>
     <string name="not_now">後で</string>
     <string name="write_in_progress">書き込み中</string>
@@ -245,4 +244,7 @@
     <string name="draft_values_skipped">適用されなかった値: %1$s</string>
     <string name="draft_unknown_sparkplug">ID が %1$s の SparkPlug はインストールされていません</string>
     <string name="draft_ignored_during_write">書き込み中のため、構成の下書きを無視しました</string>
+    <string name="expand_group">グループを展開</string>
+    <string name="collapse_group">グループを折りたたむ</string>
+    <string name="drag_to_move_group">ドラッグして別のグループに移動、またはタップして選択</string>
 </resources>
