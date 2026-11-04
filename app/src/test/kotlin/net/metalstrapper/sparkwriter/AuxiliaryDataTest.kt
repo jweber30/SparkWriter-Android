@@ -275,7 +275,7 @@ class AuxiliaryDataTest {
         assertEquals("metalstrapper-patch-slot", firstbootPatch.placeholder?.encoding)
         assertEquals("shell-comment", firstbootPatch.padding?.strategy)
         assertTrue(firstbootPatch.content.contains("use_community_repositories"))
-        assertTrue(firstbootPatch.content.contains("URIs: https://download.proxmox.com/debian/pve"))
+        assertTrue(firstbootPatch.content.contains("URIs: http://download.proxmox.com/debian/pve"))
         assertFalse(firstbootPatch.content.contains("curl"))
     }
 

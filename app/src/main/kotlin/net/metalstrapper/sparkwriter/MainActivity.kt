@@ -293,6 +293,7 @@ fun SparkWriterApp(
         SparkWriterRoute.Workflow,
         SparkWriterRoute.Device,
         SparkWriterRoute.Profile,
+        SparkWriterRoute.Settings,
     )
     var currentRoute by rememberSaveable { mutableStateOf(SparkWriterRoute.Workflow) }
     var showNotificationPermissionExplanation by rememberSaveable { mutableStateOf(false) }
@@ -795,7 +796,10 @@ fun SparkWriterApp(
                                 SparkWriterRoute.Profile -> ProfileScreen(
                                     onSaveCompleted = { status = it },
                                 )
-                                SparkWriterRoute.Settings -> SettingsScreen()
+                                SparkWriterRoute.Settings -> SettingsScreen(
+                                    onImportZip = if (localZipImportEnabled) ({ sparkPlugPicker.launch(Unit) }) else null,
+                                    writeActive = writeInProgress,
+                                )
                             }
                         }
                         NavigationBar {
@@ -862,7 +866,10 @@ fun SparkWriterApp(
                                 SparkWriterRoute.Profile -> ProfileScreen(
                                     onSaveCompleted = { status = it },
                                 )
-                                SparkWriterRoute.Settings -> SettingsScreen()
+                                SparkWriterRoute.Settings -> SettingsScreen(
+                                    onImportZip = if (localZipImportEnabled) ({ sparkPlugPicker.launch(Unit) }) else null,
+                                    writeActive = writeInProgress,
+                                )
                             }
                         }
                     }
@@ -978,7 +985,11 @@ private fun ManifestImportDialog(
     onApprove: () -> Unit,
     onCopy: (String) -> Unit,
 ) {
-    var selectedArtifact by remember { mutableStateOf<String?>(null) }
+    val pendingReview = status.pending?.takeIf { status.phase == ManifestImportPhase.Reviewing }
+    if (pendingReview != null) {
+        SparkPlugReviewScreen(pendingReview, onCancel = onDismiss, onImport = onApprove)
+        return
+    }
     val visibleMessage = status.visibleMessage()
     val sourceText = stringResource(R.string.source_value, status.manifestUrl)
     AlertDialog(
@@ -999,26 +1010,6 @@ private fun ManifestImportDialog(
                 status.detail?.ifBlank { null }?.let { detail ->
                     SelectionContainer {
                         Text(detail)
-                    }
-                }
-                status.pending?.takeIf { status.phase == ManifestImportPhase.Reviewing }?.let { pending ->
-                    Text(stringResource(R.string.review_system_changes), fontWeight = FontWeight.SemiBold)
-                    Text("${pending.manifest.metadata.name} ${pending.manifest.metadata.version.orEmpty()} — ${pending.manifest.metadata.author ?: stringResource(R.string.unknown_author)}")
-                    if (pending.findings.isEmpty()) {
-                        Text(stringResource(R.string.review_no_findings))
-                    } else {
-                        pending.findings.forEach { finding ->
-                            TextButton(onClick = {
-                                selectedArtifact = "${finding.category}: ${finding.explanation}\n${finding.source}:${finding.line}: ${finding.excerpt}"
-                            }) { Text(stringResource(R.string.view_artifact, finding.category)) }
-                        }
-                    }
-                    Text(stringResource(R.string.review_disclaimer))
-                    pending.scripts.forEach { script ->
-                        val scriptType = stringResource(if (script.inline) R.string.inline_script else R.string.script_file)
-                        TextButton(onClick = {
-                            selectedArtifact = "$scriptType: ${script.label}\n${script.text}"
-                        }) { Text(stringResource(R.string.view_artifact, script.label)) }
                     }
                 }
                 SelectionContainer {
@@ -1047,14 +1038,6 @@ private fun ManifestImportDialog(
             }
         },
     )
-    selectedArtifact?.let { artifact ->
-        AlertDialog(
-            onDismissRequest = { selectedArtifact = null },
-            title = { Text(stringResource(R.string.artifact_details)) },
-            text = { SelectionContainer { Text(artifact) } },
-            confirmButton = { TextButton(onClick = { selectedArtifact = null }) { Text(stringResource(R.string.ok)) } },
-        )
-    }
 }
 
 @Composable

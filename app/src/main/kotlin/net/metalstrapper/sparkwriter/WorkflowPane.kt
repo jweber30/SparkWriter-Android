@@ -805,7 +805,7 @@ internal fun WorkflowPane(
                             )
                             Column(Modifier.weight(1f)) {
                                 Text(device.displayName, fontWeight = FontWeight.SemiBold)
-                                Text(device.sizeHuman)
+                                Text(if (device.sizeBytes > 0) device.sizeHuman else stringResource(R.string.size_unknown_allow_usb))
                             }
                         }
                     }

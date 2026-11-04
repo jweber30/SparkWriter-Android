@@ -646,7 +646,7 @@ internal fun validateTemplateText(template: String, where: String) {
         val after = template.getOrNull(span.range.last + 1)
         if (before in QUOTE_CHARS || after in QUOTE_CHARS) {
             throw ManifestValidationException(
-                "$where wraps ${span.value} in quotes; $quoting already emits a quoted literal",
+                "$where wraps ${span.value} in quotes; $quoting already emits a complete literal",
             )
         }
     }

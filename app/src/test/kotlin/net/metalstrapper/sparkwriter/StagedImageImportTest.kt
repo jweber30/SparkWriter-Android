@@ -76,17 +76,16 @@ class StagedImageImportTest {
     }
 
     @Test
-    fun pruneKeepsOnlyTheNewestImportAndRemovesPartials() {
+    fun leftoverPartialsAreRemovedAndOtherFilesKept() {
         val dir = temp.newFolder("imports")
-        val keep = readAndStageImage(ByteArrayInputStream(image), dir).stagedFile!!
-        val older = dir.resolve("${"b".repeat(64)}.iso").apply { writeText("old") }
+        val staged = readAndStageImage(ByteArrayInputStream(image), dir).stagedFile!!
         val partial = dir.resolve("import-123.partial").apply { writeText("partial") }
         val unrelated = dir.resolve("notes.txt").apply { writeText("keep") }
 
-        pruneStagedImports(dir, keep)
+        pruneLeftoverPartials(dir)
 
-        assertTrue(keep.isFile)
+        assertTrue(staged.isFile)
         assertTrue(unrelated.isFile)
-        assertTrue(!older.exists() && !partial.exists())
+        assertTrue(!partial.exists())
     }
 }

@@ -314,7 +314,7 @@ templates:
     mailto = {{ pve_mailto | toml_string }}
     timezone = {{ pve_timezone | toml_string }}
     root-password-hashed = {{ generated_proxmox_root_password_hash | toml_string }}
-    root-ssh-keys = {{pve_root_ssh_keys}}
+    root-ssh-keys = {{ pve_root_ssh_keys | toml_array }}
     reboot-mode = {{ pve_reboot_mode | toml_string }}
     [network]
     source = {{ pve_network_source | toml_string }}
@@ -330,7 +330,7 @@ templates:
     {% endif %}
     [disk-setup]
     filesystem = {{ pve_disk_filesystem | toml_string }}
-    disk-list = {{pve_disk_list}}
+    disk-list = {{ pve_disk_list | toml_array }}
     {% if pve_zfs_raid %}
     zfs.raid = {{ pve_zfs_raid | toml_string }}
     {% endif %}
@@ -491,6 +491,10 @@ templates:
       esac
       log "Disabled $file"
     }
+
+    # Plain http on purpose: download.proxmox.com's TLS certificate does not name
+    # that host, so https fails. apt still checks the Proxmox signature on the
+    # repository index and each package's hash, as Proxmox's own docs rely on.
     use_community_repositories() {
       local suite keyring signed_by="" sources_dir="$target_root/etc/apt/sources.list.d"
       suite="$(. "$target_root/etc/os-release" && printf '%s' "${VERSION_CODENAME:-}")"
@@ -510,13 +514,13 @@ templates:
       fi
       cat >"$sources_dir/proxmox-community.sources" <<EOF_PVE
     Types: deb
-    URIs: https://download.proxmox.com/debian/pve
+    URIs: http://download.proxmox.com/debian/pve
     Suites: $suite
     Components: pve-no-subscription
     $signed_by
 
     Types: deb
-    URIs: https://download.proxmox.com/debian/ceph-squid
+    URIs: http://download.proxmox.com/debian/ceph-squid
     Suites: $suite
     Components: no-subscription
     $signed_by

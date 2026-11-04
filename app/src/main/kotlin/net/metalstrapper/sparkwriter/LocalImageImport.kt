@@ -6,8 +6,10 @@ import android.provider.OpenableColumns
 import androidx.work.WorkManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import net.metalstrapper.sparkwriter.core.VerifiedImage
+import net.metalstrapper.sparkwriter.storage.AppSettingsStore
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -63,7 +65,15 @@ suspend fun importLocalImage(
     read.stagedFile?.let { staged ->
         // Keep only the newest staged import, and never delete one an active write may reopen.
         if (activeUsbWriteWorkInfo(WorkManager.getInstance(context)) == null) {
-            pruneStagedImports(stagingDir, keep = staged)
+            val settings = AppSettingsStore(context.applicationContext)
+            applyRetention(
+                context.filesDir,
+                settings.isoRetention.first(),
+                settings.maxRetainedImages.first(),
+                protect = staged,
+            )
+            // A partial copy is never a usable image, whatever the retention policy.
+            pruneLeftoverPartials(stagingDir)
         }
     }
     VerifiedImage(
@@ -148,11 +158,10 @@ internal fun readAndStageImage(
     }
 }
 
-/** Deletes every staged import and leftover partial copy except [keep]. */
-internal fun pruneStagedImports(stagingDir: File, keep: File) {
+/** Deletes leftover partial copies from interrupted imports. */
+internal fun pruneLeftoverPartials(stagingDir: File) {
     stagingDir.listFiles()
-        ?.filter { it.isFile && it.canonicalPath != keep.canonicalPath }
-        ?.filter { it.name.endsWith(STAGED_SUFFIX) || it.name.endsWith(PARTIAL_SUFFIX) }
+        ?.filter { it.isFile && it.name.endsWith(PARTIAL_SUFFIX) }
         ?.forEach { it.delete() }
 }
 

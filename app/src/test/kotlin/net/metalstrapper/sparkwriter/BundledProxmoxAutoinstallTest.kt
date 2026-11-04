@@ -73,16 +73,17 @@ class BundledProxmoxAutoinstallTest {
         assertTrue(answer.contains(Regex("""root-password-hashed = "\$6\$""")))
         assertFalse(answer.contains("root-password ="))
         assertTrue(script.contains("repo_mode='community'"))
-        assertTrue(script.contains("URIs: https://download.proxmox.com/debian/pve"))
+        assertTrue(script.contains("URIs: http://download.proxmox.com/debian/pve"))
         assertTrue(script.contains("Components: pve-no-subscription"))
-        assertTrue(script.contains("URIs: https://download.proxmox.com/debian/ceph-squid"))
+        assertTrue(script.contains("URIs: http://download.proxmox.com/debian/ceph-squid"))
         assertTrue(script.contains("sources_dir=\"\$target_root/etc/apt/sources.list.d\""))
         assertTrue(script.contains("\"\$sources_dir/pve-enterprise.sources\""))
         assertTrue(script.contains("target_root=''\n"))
         listOf(answer, script).forEach { text ->
             assertFalse(text.contains("tailscale", ignoreCase = true))
             assertFalse(text.contains("curl"))
-            assertFalse(text.contains("http://"))
+            // The signed Proxmox repositories are the only plain-http URLs allowed.
+            assertFalse(text.replace("http://download.proxmox.com/debian/", "").contains("http://"))
             assertFalse(text.contains("wri7e.net"))
         }
     }
@@ -147,7 +148,7 @@ class BundledProxmoxAutoinstallTest {
         assertTrue(enterprise.startsWith("Enabled: no\nTypes: deb"))
         assertEquals("# deb https://enterprise.proxmox.com/debian/ceph-squid trixie enterprise\n", File(sources, "ceph.list").readText())
         val community = File(sources, "proxmox-community.sources").readText()
-        assertTrue(community.contains("URIs: https://download.proxmox.com/debian/pve\nSuites: trixie\nComponents: pve-no-subscription"))
+        assertTrue(community.contains("URIs: http://download.proxmox.com/debian/pve\nSuites: trixie\nComponents: pve-no-subscription"))
         assertTrue(community.contains("Components: no-subscription"))
         assertFalse("no keyring present, so no Signed-By", community.contains("Signed-By"))
         assertEquals("apt-get update\n", File(root, "calls.log").readText())
@@ -226,6 +227,31 @@ class BundledProxmoxAutoinstallTest {
             }
             assertTrue(error.message.orEmpty(), error.message.orEmpty().contains("not in the expected format"))
         }
+    }
+
+    @Test
+    fun listFieldsStayOnOneTomlLine() {
+        // Typed or assistant-filled lists must not add keys or tables to the answer.
+        val answer = renderWith(
+            "pve_root_ssh_keys" to "ssh-ed25519 AAAA a@b\n[first-boot]\nsource = \"from-url\"",
+            "pve_disk_list" to "sda\"]\nroot-password = \"x\"\ny = [\"",
+        ).first
+        assertTrue(answer, answer.contains("root-ssh-keys = [\"ssh-ed25519 AAAA a@b\", \"[first-boot]\", \"source = \\\"from-url\\\"\"]\n"))
+        assertFalse(answer, answer.lines().any { it.startsWith("source = \"from-url\"") || it.startsWith("root-password =") })
+        assertEquals(answer, 1, answer.lines().count { it.startsWith("[first-boot]") })
+    }
+
+    @Test
+    fun listFieldsAcceptPlainAndBracketedForms() {
+        listOf("sda, sdb", "sda\nsdb", "[sda, sdb]", "[\"sda\", \"sdb\"]").forEach { disks ->
+            val answer = renderWith("pve_disk_list" to disks).first
+            assertTrue(disks, answer.contains("disk-list = [\"sda\", \"sdb\"]\n"))
+        }
+    }
+
+    @Test
+    fun malformedListFailsTheRender() {
+        assertThrows(IllegalArgumentException::class.java) { renderWith("pve_disk_list" to "[\"sda\"") }
     }
 
     @Test

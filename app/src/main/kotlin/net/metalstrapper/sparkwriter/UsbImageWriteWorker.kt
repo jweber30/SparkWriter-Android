@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -20,6 +21,7 @@ import androidx.work.workDataOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -48,6 +50,8 @@ import net.metalstrapper.sparkwriter.core.WriteIntent
 import net.metalstrapper.sparkwriter.core.WriteReturnPlan
 import net.metalstrapper.sparkwriter.core.WriteStatus
 import net.metalstrapper.sparkwriter.core.WorkflowAction
+import net.metalstrapper.sparkwriter.storage.AppSettingsStore
+import net.metalstrapper.sparkwriter.storage.IsoRetention
 import net.metalstrapper.sparkwriter.storage.ReceiptEntity
 import net.metalstrapper.sparkwriter.storage.SparkWriterDatabase
 import net.metalstrapper.sparkwriter.usb.AndroidUsbHostBlockWriter
@@ -186,6 +190,8 @@ class UsbImageWriteWorker(
                 showCompletionNotification(applicationContext.getString(R.string.usb_write_complete))
                 val receiptPayload = tryPersistReceipt(intent, WriteStatus.COMPLETED, null, finalImage)
                 completedReceiptPersisted = true
+                runCatching { discardImageAfterWrite(intent.image.uri) }
+                    .onFailure { Log.w("SparkWriter", "Could not apply image retention after write", it) }
                 val completionMessage = runCatching {
                     deliverWriteCompleteReturns(intent, receiptPayload)
                     applicationContext.getString(R.string.usb_write_complete)
@@ -223,6 +229,17 @@ class UsbImageWriteWorker(
         } finally {
             deletePersistedInput(inputData)
         }
+    }
+
+    /** Applies "delete after successful write" to the private copy of the image just written. */
+    private suspend fun discardImageAfterWrite(imageUri: String) {
+        val retention = AppSettingsStore(applicationContext).isoRetention.first()
+        if (retention != IsoRetention.DeleteAfterWrite) return
+        val path = Uri.parse(imageUri).takeIf { it.scheme == "file" }?.path ?: return
+        val filesDir = applicationContext.filesDir
+        listStoredImages(filesDir)
+            .firstOrNull { it.file.canonicalPath == File(path).canonicalPath }
+            ?.let { deleteStoredImage(filesDir, it) }
     }
 
     /** Last stage reported through [updateProgress], recorded on cancellation receipts. */

@@ -246,19 +246,24 @@ A placeholder may pipe its value through filters: `{{ name | filter }}`.
   Values may not contain NUL bytes.
 - `toml_string` emits a TOML basic string with `"`, `\` and control
   characters escaped.
+- `toml_array` emits a one-line TOML array of strings, each escaped like
+  `toml_string`. It reads a list the way people type it: `["sda", "sdb"]`,
+  `[sda, sdb]`, `sda, sdb`, or one item per line. It fails the render on an
+  unclosed bracket or quote, or a nested list.
 - `mac_hex` turns a MAC address such as `00:11:22:AA:BB:CC` into 12 lowercase
   hex digits (`001122aabbcc`), the form udev uses in `ID_NET_NAME_MAC`. It
   accepts `:`, `-` or `.` separators and fails the render on anything that
   is not a MAC address. It does not quote, so it may sit inside a quoted string.
 
-The quoting filters emit the surrounding quotes themselves, so write
-`name={{ name | shell_quote }}` and `key = {{ name | toml_string }}`, never
-`'{{ name | shell_quote }}'`. Android rejects at load time a malformed
+The quoting filters emit the surrounding quotes or brackets themselves, so write
+`name={{ name | shell_quote }}`, `key = {{ name | toml_string }}` and
+`keys = {{ name | toml_array }}`, never `'{{ name | shell_quote }}'`. Android rejects at load time a malformed
 placeholder, an unknown filter, or a quoting filter wrapped in quotes.
 
-Use a quoting filter for every free-text value placed in a script or a config
-file. Raw substitution is only right for values the template expects to be
-pre-formatted, such as a TOML array.
+Use a quoting filter for every value a person or an assistant can type that
+lands in a script or a config file, lists included. A raw `{{ name }}` copies
+the value as typed, line breaks and all, so it is only right for values the
+SparkPlug itself fixes, such as a `select` option or a generated hash.
 
 ## Config Field Limits
 

@@ -82,6 +82,64 @@ class TemplateValidationTest {
     }
 
     @Test
+    fun tomlArrayReadsEveryListFormat() {
+        val two = "[\"sda\", \"sdb\"]"
+        mapOf(
+            "[\"sda\", \"sdb\"]" to two,
+            " [ 'sda' ,\n  \"sdb\", ] " to two,
+            "[sda, sdb]" to two,
+            "sda, sdb" to two,
+            "sda\nsdb\n" to two,
+            "sda,\r\nsdb" to two,
+            "sda" to "[\"sda\"]",
+            "" to "[]",
+            "[]" to "[]",
+            "  " to "[]",
+            "[\"ssh-ed25519 AAAA user@host\"]" to "[\"ssh-ed25519 AAAA user@host\"]",
+            "[\"a\\\"b\\u00e9\"]" to "[\"a\\\"bé\"]",
+        ).forEach { (input, expected) ->
+            assertEquals(input.quoted(), expected, SparkTemplateFilters.tomlArray(input))
+        }
+    }
+
+    @Test
+    fun tomlArrayCannotBreakOutOfTheLine() {
+        listOf(
+            "sda\n[first-boot]\nsource = \"from-url\"",
+            "sda\"]\nsource = \"from-url\"\nx = [\"",
+            "sda, \"], evil = [\"",
+        ).forEach { input ->
+            val rendered = SparkTemplateFilters.tomlArray(input)
+            assertTrue(rendered, '\n' !in rendered && '\r' !in rendered)
+            assertTrue(rendered, rendered.startsWith("[\"") && rendered.endsWith("\"]"))
+        }
+    }
+
+    @Test
+    fun tomlArrayRejectsMalformedLists() {
+        listOf(
+            "[",
+            "[\"sda\"",
+            "[]\n[first-boot]",
+            "[\"sda]",
+            "['sda]",
+            "[\"sda\" \"sdb\"]",
+            "[[\"sda\"]]",
+            "[sda, , sdb]",
+            "[\"a\nb\"]",
+            "[\"\\q\"]",
+            "[\"\\ud800\"]",
+        ).forEach { input ->
+            assertThrows(input.quoted(), IllegalArgumentException::class.java) { SparkTemplateFilters.tomlArray(input) }
+        }
+    }
+
+    @Test
+    fun rejectsTomlArrayInsideQuotes() {
+        assertRejected(withTemplate("keys = \"{{ name | toml_array }}\""), "already emits a complete literal")
+    }
+
+    @Test
     fun filtersChainInOrder() {
         assertEquals(
             SparkTemplateFilters.tomlString(SparkTemplateFilters.shellQuote("a'b")),
@@ -107,8 +165,8 @@ class TemplateValidationTest {
 
     @Test
     fun rejectsQuotingFilterInsideQuotes() {
-        assertRejected(withTemplate("cmd='{{ name | shell_quote }}'"), "already emits a quoted literal")
-        assertRejected(withTemplate("key = \"{{ name | toml_string }}\""), "already emits a quoted literal")
+        assertRejected(withTemplate("cmd='{{ name | shell_quote }}'"), "already emits a complete literal")
+        assertRejected(withTemplate("key = \"{{ name | toml_string }}\""), "already emits a complete literal")
     }
 
     @Test

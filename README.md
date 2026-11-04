@@ -2,6 +2,8 @@
 
 SparkWriter turns a verified operating-system image and a declarative configuration into bootable installation media, without requiring the user to understand the underlying installation process.
 
+Join the Play Store internal testing group by emailing weber.jesse@gmail.com.
+
 Modules:
 
 - `app`: Jetpack Compose workflow UI and `spark://plugin/add` deep-link entrypoint.

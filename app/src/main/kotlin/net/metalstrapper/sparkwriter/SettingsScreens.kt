@@ -48,6 +48,20 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import net.metalstrapper.sparkwriter.storage.DEFAULT_RETAINED_IMAGES
+import net.metalstrapper.sparkwriter.storage.IsoRetention
+import net.metalstrapper.sparkwriter.storage.MIN_RETAINED_IMAGES
+import java.text.DateFormat
+import java.util.Date
 import net.metalstrapper.sparkwriter.core.PermissionResult
 import net.metalstrapper.sparkwriter.storage.AppSettingsStore
 import net.metalstrapper.sparkwriter.storage.ProfileStore
@@ -145,7 +159,7 @@ internal fun DeviceScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(device.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    DeviceDetailRow(stringResource(R.string.capacity), device.sizeHuman)
+                    DeviceDetailRow(stringResource(R.string.capacity), if (device.sizeBytes > 0) device.sizeHuman else stringResource(R.string.size_unknown_allow_usb))
                     DeviceDetailRow(stringResource(R.string.manufacturer), device.vendor ?: stringResource(R.string.unknown))
                     DeviceDetailRow(stringResource(R.string.model), device.model ?: stringResource(R.string.unknown))
                     DeviceDetailRow(stringResource(R.string.usb_id_path), device.path.removeUsbSchemePrefix())
@@ -317,11 +331,28 @@ internal fun ProfileScreen(
 }
 
 @Composable
-internal fun SettingsScreen(modifier: Modifier = Modifier) {
+internal fun SettingsScreen(
+    onImportZip: (() -> Unit)?,
+    writeActive: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val appSettingsStore = remember(context) { AppSettingsStore(context.applicationContext) }
     val localZipImportEnabled by appSettingsStore.localZipImportEnabled.collectAsState(initial = false)
+    val retention by appSettingsStore.isoRetention.collectAsState(initial = IsoRetention.KeepRecent)
+    val maxRetained by appSettingsStore.maxRetainedImages.collectAsState(initial = DEFAULT_RETAINED_IMAGES)
+    var managingImages by remember { mutableStateOf(false) }
+
+    if (managingImages) {
+        StoredImagesScreen(
+            writeActive = writeActive,
+            onBack = { managingImages = false },
+            modifier = modifier,
+        )
+        return
+    }
+
     LazyColumn(
         modifier = modifier.fillMaxSize().padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -346,5 +377,136 @@ internal fun SettingsScreen(modifier: Modifier = Modifier) {
                 )
             }
         }
+        if (onImportZip != null) {
+            item {
+                Button(onClick = onImportZip, enabled = !writeActive) {
+                    Text(stringResource(R.string.import_sparkplug_zip))
+                }
+            }
+        }
+        item {
+            Text(stringResource(R.string.iso_storage), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        items(IsoRetention.entries.toList(), key = { it.name }) { option ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .selectable(
+                        selected = retention == option,
+                        role = Role.RadioButton,
+                        onClick = { scope.launch { appSettingsStore.setIsoRetention(option) } },
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = retention == option, onClick = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(option.labelRes))
+            }
+        }
+        item {
+            var text by remember(maxRetained) { mutableStateOf(maxRetained.toString()) }
+            OutlinedTextField(
+                value = text,
+                onValueChange = { input ->
+                    val digits = input.filter(Char::isDigit).take(3)
+                    text = digits
+                    digits.toIntOrNull()?.takeIf { it >= MIN_RETAINED_IMAGES }?.let {
+                        scope.launch { appSettingsStore.setMaxRetainedImages(it) }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.max_retained_images)) },
+                enabled = retention == IsoRetention.KeepRecent,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+        }
+        item {
+            OutlinedButton(onClick = { managingImages = true }, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.manage_stored_images))
+                    Text(stringResource(R.string.manage_stored_images_description), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@get:StringRes
+private val IsoRetention.labelRes: Int
+    get() = when (this) {
+        IsoRetention.DeleteAfterWrite -> R.string.iso_retention_delete_after_write
+        IsoRetention.KeepRecent -> R.string.iso_retention_keep_recent
+        IsoRetention.KeepUntilDeleted -> R.string.iso_retention_keep_until_deleted
+    }
+
+@Composable
+private fun StoredImagesScreen(
+    writeActive: Boolean,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var images by remember { mutableStateOf<List<StoredImage>?>(null) }
+    var pendingDelete by remember { mutableStateOf<StoredImage?>(null) }
+    val dateFormat = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
+
+    suspend fun reload() {
+        images = withContext(Dispatchers.IO) { listStoredImages(context.filesDir) }
+    }
+    LaunchedEffect(Unit) { reload() }
+
+    LazyColumn(
+        modifier = modifier.fillMaxSize().padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        item {
+            TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
+            Text(stringResource(R.string.manage_stored_images), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            val list = images
+            if (list != null) {
+                Text(stringResource(R.string.stored_images_total, list.size, list.sumOf { it.sizeBytes }.toHumanBytes()))
+            }
+            if (writeActive) Text(stringResource(R.string.stored_images_write_active))
+        }
+        val list = images
+        if (list != null && list.isEmpty()) {
+            item { Text(stringResource(R.string.stored_images_none)) }
+        }
+        items(list.orEmpty(), key = { it.file.path }) { image ->
+            Card(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(image.file.name.take(40), style = MaterialTheme.typography.titleSmall)
+                        Text("${image.sizeBytes.toHumanBytes()} · ${dateFormat.format(Date(image.modifiedMillis))}")
+                    }
+                    TextButton(onClick = { pendingDelete = image }, enabled = !writeActive) {
+                        Text(stringResource(R.string.delete))
+                    }
+                }
+            }
+        }
+    }
+    pendingDelete?.let { image ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(stringResource(R.string.delete_stored_image_title)) },
+            text = { Text(stringResource(R.string.delete_stored_image_message, image.file.name.take(40), image.sizeBytes.toHumanBytes())) },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingDelete = null
+                    scope.launch {
+                        withContext(Dispatchers.IO) { deleteStoredImage(context.filesDir, image) }
+                        reload()
+                    }
+                }) { Text(stringResource(R.string.delete)) }
+            },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
 }
