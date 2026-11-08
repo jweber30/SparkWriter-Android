@@ -54,13 +54,6 @@ This directory includes a Gradle wrapper. Run:
 ./gradlew assembleDebug
 ```
 
-## Hardware Test Checklist
-
-- Test at least two Android USB OTG hosts.
-- Test at least three USB drives from different vendors/sizes.
-- Verify permission denial, unplug during write, checksum mismatch, and too-small-device refusal.
-- Enable raw streaming only after full-image readback verification succeeds on real hardware.
-
 ## License
 
 SparkWriter is released under the [MIT License](LICENSE).
