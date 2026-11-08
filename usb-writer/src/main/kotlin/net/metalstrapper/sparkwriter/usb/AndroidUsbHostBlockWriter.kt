@@ -49,6 +49,11 @@ private const val CSW_STATUS_FAILED = 1
 private const val SENSE_KEY_ILLEGAL_REQUEST = 0x05
 private const val MASS_STORAGE_SUBCLASS_SCSI_TRANSPARENT = 0x06
 private const val MASS_STORAGE_PROTOCOL_BULK_ONLY = 0x50
+private const val USB_CONTROL_REQ_CLEAR_FEATURE = 0x01
+private const val USB_CONTROL_REQ_BULK_RESET = 0xFF
+private const val USB_CONTROL_REQ_TYPE_ENDPOINT = 0x02
+private const val USB_CONTROL_REQ_TYPE_INTERFACE = 0x21
+private const val USB_ENDPOINT_HALT = 0x00
 
 class AndroidUsbHostBlockWriter(
     private val context: Context,
@@ -541,7 +546,7 @@ private class ClaimedDevice(
 
 private suspend fun currentExclusiveWrite(): ExclusiveWriteScope? = currentCoroutineContext()[ExclusiveWriteScope]
 
-private data class UsbCapacity(
+internal data class UsbCapacity(
     val blockSize: Int,
     val blockCount: Long,
 ) {
@@ -549,11 +554,62 @@ private data class UsbCapacity(
         .getOrElse { throw WriteRefusedException("USB device reported unsupported capacity") }
 }
 
-private class UsbMassStorageSession private constructor(
+internal interface UsbTransport : AutoCloseable {
+    val interfaceId: Int
+    val bulkInAddress: Int
+    val bulkOutAddress: Int
+    fun bulkOut(bytes: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int
+    fun bulkIn(bytes: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int
+    fun controlTransfer(
+        requestType: Int,
+        request: Int,
+        value: Int,
+        index: Int,
+        buffer: ByteArray?,
+        length: Int,
+        timeoutMs: Int,
+    ): Int
+}
+
+private class AndroidUsbTransport(
     private val connection: UsbDeviceConnection,
     private val usbInterface: UsbInterface,
     private val bulkIn: UsbEndpoint,
     private val bulkOut: UsbEndpoint,
+) : UsbTransport {
+    override val interfaceId: Int get() = usbInterface.id
+    override val bulkInAddress: Int get() = bulkIn.address
+    override val bulkOutAddress: Int get() = bulkOut.address
+
+    override fun bulkOut(bytes: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int =
+        connection.bulkTransfer(bulkOut, bytes, offset, length, timeoutMs)
+
+    override fun bulkIn(bytes: ByteArray, offset: Int, length: Int, timeoutMs: Int): Int =
+        connection.bulkTransfer(bulkIn, bytes, offset, length, timeoutMs)
+
+    override fun controlTransfer(
+        requestType: Int,
+        request: Int,
+        value: Int,
+        index: Int,
+        buffer: ByteArray?,
+        length: Int,
+        timeoutMs: Int,
+    ): Int = connection.controlTransfer(requestType, request, value, index, buffer ?: ByteArray(0), length, timeoutMs)
+
+    override fun close() {
+        runCatching { connection.releaseInterface(usbInterface) }
+        connection.close()
+    }
+}
+
+internal class UsbStallException(
+    val endpointAddress: Int,
+    message: String = "USB bulk endpoint 0x%02X stalled".format(endpointAddress),
+) : WriteRefusedException(message)
+
+internal class UsbMassStorageSession internal constructor(
+    private val transport: UsbTransport,
 ) : AutoCloseable {
     private val tag = AtomicInteger(1)
 
@@ -696,8 +752,7 @@ private class UsbMassStorageSession private constructor(
     }
 
     override fun close() {
-        runCatching { connection.releaseInterface(usbInterface) }
-        connection.close()
+        transport.close()
     }
 
     private fun command(
@@ -720,10 +775,49 @@ private class UsbMassStorageSession private constructor(
         cswTimeoutMs: Int = BULK_TIMEOUT_MS,
     ): Int {
         val commandTag = tag.getAndIncrement()
-        sendCbw(commandTag, commandBlock, dataLength, dataIn != null)
-        if (dataOut != null && dataLength > 0) bulkOut.writeExact(dataOut, dataLength)
-        if (dataIn != null && dataLength > 0) bulkIn.readExact(dataIn, dataLength)
-        return readCsw(commandTag, cswTimeoutMs)
+        try {
+            sendCbw(commandTag, commandBlock, dataLength, dataIn != null)
+        } catch (stall: UsbStallException) {
+            recoverWithReset(stall)
+        }
+
+        var dataStalled = false
+        if (dataOut != null && dataLength > 0) {
+            try {
+                writeExact(dataOut, dataLength)
+            } catch (stall: UsbStallException) {
+                dataStalled = true
+                try {
+                    clearEndpointHalt(transport.bulkOutAddress)
+                } catch (recoveryError: Exception) {
+                    recoverWithReset(recoveryError)
+                }
+            }
+        }
+        if (dataIn != null && dataLength > 0) {
+            try {
+                readExact(dataIn, dataLength)
+            } catch (stall: UsbStallException) {
+                dataStalled = true
+                try {
+                    clearEndpointHalt(transport.bulkInAddress)
+                } catch (recoveryError: Exception) {
+                    recoverWithReset(recoveryError)
+                }
+            }
+        }
+
+        val status = try {
+            readCsw(commandTag, cswTimeoutMs)
+        } catch (error: Exception) {
+            recoverWithReset(error)
+        }
+
+        if (dataStalled && status == CSW_STATUS_PASSED) {
+            recoverWithReset(WriteRefusedException("USB data transfer stalled but command reported success"))
+        }
+
+        return status
     }
 
     private fun sendCbw(commandTag: Int, commandBlock: ByteArray, dataLength: Int, dataIn: Boolean) {
@@ -738,12 +832,17 @@ private class UsbMassStorageSession private constructor(
             put(commandBlock.size.toByte())
             put(commandBlock)
         }
-        bulkOut.writeExact(cbw, cbw.size)
+        writeExact(cbw, cbw.size)
     }
 
     private fun readCsw(expectedTag: Int, timeoutMs: Int): Int {
         val csw = ByteArray(CSW_LENGTH)
-        bulkIn.readExact(csw, csw.size, timeoutMs)
+        try {
+            readExact(csw, csw.size, timeoutMs)
+        } catch (stall: UsbStallException) {
+            clearEndpointHalt(transport.bulkInAddress)
+            readExact(csw, csw.size, timeoutMs)
+        }
         val buffer = ByteBuffer.wrap(csw).order(ByteOrder.LITTLE_ENDIAN)
         val signature = buffer.int
         val actualTag = buffer.int
@@ -755,20 +854,75 @@ private class UsbMassStorageSession private constructor(
         return status
     }
 
-    private fun UsbEndpoint.writeExact(bytes: ByteArray, length: Int) {
+    private fun clearEndpointHalt(endpointAddress: Int) {
+        val result = transport.controlTransfer(
+            requestType = USB_CONTROL_REQ_TYPE_ENDPOINT,
+            request = USB_CONTROL_REQ_CLEAR_FEATURE,
+            value = USB_ENDPOINT_HALT,
+            index = endpointAddress,
+            buffer = null,
+            length = 0,
+            timeoutMs = BULK_TIMEOUT_MS,
+        )
+        if (result < 0) {
+            throw WriteRefusedException("Failed to clear halt on USB endpoint 0x%02X".format(endpointAddress))
+        }
+    }
+
+    private fun bulkOnlyReset() {
+        val result = transport.controlTransfer(
+            requestType = USB_CONTROL_REQ_TYPE_INTERFACE,
+            request = USB_CONTROL_REQ_BULK_RESET,
+            value = 0,
+            index = transport.interfaceId,
+            buffer = null,
+            length = 0,
+            timeoutMs = BULK_TIMEOUT_MS,
+        )
+        if (result < 0) {
+            throw WriteRefusedException("USB mass-storage reset failed")
+        }
+        var firstError: Exception? = null
+        try {
+            clearEndpointHalt(transport.bulkInAddress)
+        } catch (e: Exception) {
+            firstError = e
+        }
+        try {
+            clearEndpointHalt(transport.bulkOutAddress)
+        } catch (e: Exception) {
+            if (firstError != null) firstError.addSuppressed(e) else firstError = e
+        }
+        if (firstError != null) throw firstError
+    }
+
+    private fun recoverWithReset(cause: Throwable): Nothing {
+        try {
+            bulkOnlyReset()
+        } catch (resetError: Exception) {
+            cause.addSuppressed(resetError)
+        }
+        throw (cause as? WriteRefusedException ?: WriteRefusedException(cause.message ?: "USB command failed", cause))
+    }
+
+    private fun writeExact(bytes: ByteArray, length: Int) {
         var offset = 0
         while (offset < length) {
-            val transferred = connection.bulkTransfer(this, bytes, offset, length - offset, BULK_TIMEOUT_MS)
-            if (transferred <= 0) throw WriteRefusedException("USB bulk write timed out")
+            val transferred = transport.bulkOut(bytes, offset, length - offset, BULK_TIMEOUT_MS)
+            if (transferred <= 0) {
+                throw UsbStallException(transport.bulkOutAddress, "USB bulk write stalled on endpoint 0x%02X".format(transport.bulkOutAddress))
+            }
             offset += transferred
         }
     }
 
-    private fun UsbEndpoint.readExact(bytes: ByteArray, length: Int, timeoutMs: Int = BULK_TIMEOUT_MS) {
+    private fun readExact(bytes: ByteArray, length: Int, timeoutMs: Int = BULK_TIMEOUT_MS) {
         var offset = 0
         while (offset < length) {
-            val transferred = connection.bulkTransfer(this, bytes, offset, length - offset, timeoutMs)
-            if (transferred <= 0) throw WriteRefusedException("USB bulk read timed out")
+            val transferred = transport.bulkIn(bytes, offset, length - offset, timeoutMs)
+            if (transferred <= 0) {
+                throw UsbStallException(transport.bulkInAddress, "USB bulk read stalled on endpoint 0x%02X".format(transport.bulkInAddress))
+            }
             offset += transferred
         }
     }
@@ -784,10 +938,12 @@ private class UsbMassStorageSession private constructor(
                 throw WriteRefusedException("USB mass-storage interface could not be claimed")
             }
             return UsbMassStorageSession(
-                connection = connection,
-                usbInterface = descriptor.usbInterface,
-                bulkIn = descriptor.bulkIn,
-                bulkOut = descriptor.bulkOut,
+                AndroidUsbTransport(
+                    connection = connection,
+                    usbInterface = descriptor.usbInterface,
+                    bulkIn = descriptor.bulkIn,
+                    bulkOut = descriptor.bulkOut,
+                ),
             )
         }
     }

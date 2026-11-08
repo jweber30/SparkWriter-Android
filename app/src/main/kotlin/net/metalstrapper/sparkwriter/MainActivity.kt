@@ -209,7 +209,7 @@ data class ManifestInstallRequest(
     val nonce: Long,
 )
 
-private enum class ManifestImportPhase {
+internal enum class ManifestImportPhase {
     Received,
     Checking,
     AwaitingConfirmation,
@@ -220,7 +220,7 @@ private enum class ManifestImportPhase {
     Failed,
 }
 
-private data class ManifestImportStatus(
+internal data class ManifestImportStatus(
     val phase: ManifestImportPhase,
     val manifestUrl: String,
     val manifestName: String? = null,
@@ -233,7 +233,7 @@ private data class ManifestImportStatus(
             phase == ManifestImportPhase.Downloading
 }
 
-private enum class SparkWriterRoute(@StringRes val titleRes: Int) {
+internal enum class SparkWriterRoute(@StringRes val titleRes: Int) {
     Sources(R.string.nav_sources),
     Workflow(R.string.nav_workflow),
     Device(R.string.nav_device),
@@ -979,7 +979,7 @@ fun SparkWriterApp(
 }
 
 @Composable
-private fun ManifestImportDialog(
+internal fun ManifestImportDialog(
     status: ManifestImportStatus,
     onDismiss: () -> Unit,
     onApprove: () -> Unit,

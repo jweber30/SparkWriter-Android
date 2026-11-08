@@ -1134,7 +1134,7 @@ internal fun SparkManifest.displayWizardPages(visibleFields: List<ConfigField>):
 }
 
 @Composable
-private fun ReviewSummary(
+internal fun ReviewSummary(
     fields: List<ConfigField>,
     values: Map<String, String>,
     provenance: Map<String, PrefillProvenance> = emptyMap(),
@@ -1178,7 +1178,7 @@ private fun ReviewSummary(
 }
 
 @Composable
-private fun net.metalstrapper.sparkwriter.core.ReturnDeliverySpec.deliveryModeExplanation(event: String): String {
+internal fun net.metalstrapper.sparkwriter.core.ReturnDeliverySpec.deliveryModeExplanation(event: String): String {
     return when (deliveryMode.lowercase(Locale.ROOT)) {
         "required" -> stringResource(
             if (event == "write_ready") R.string.return_required_write_ready
@@ -1189,7 +1189,7 @@ private fun net.metalstrapper.sparkwriter.core.ReturnDeliverySpec.deliveryModeEx
 }
 
 @Composable
-private fun ReviewFieldValue(
+internal fun ReviewFieldValue(
     field: ConfigField,
     value: String,
 ) {

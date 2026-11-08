@@ -9,7 +9,7 @@ import java.io.InputStream
 import java.security.DigestInputStream
 import java.security.MessageDigest
 
-class WriteRefusedException(message: String) : IllegalStateException(message)
+open class WriteRefusedException(message: String, cause: Throwable? = null) : IllegalStateException(message, cause)
 
 fun validateWriteIntent(intent: WriteIntent, probed: BlockDeviceInfo) {
     val device = probed.device
